@@ -1,0 +1,393 @@
+
+
+
+// Problem 4 sample output
+// Dakota Crane & Keegan Wantz
+
+
+EVENT: Dispatch - PID 0 is now running
+Running: PID 0, PRIORITY 0, PC 81
+Current Iteration: 0
+Q0: 36  - Quantum Size: 5
+Q1: 0   - Quantum Size: 13
+Q2: 0   - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+
+EVENT: Timer Interrupt
+Running: PID 0, PRIORITY 0, PC 81
+Current Iteration: 5
+Q0: 36  - Quantum Size: 5
+Q1: 0   - Quantum Size: 13
+Q2: 0   - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+
+EVENT: PID 0 ran out of time - moved to ready queue.
+EVENT: Dispatch - PID 1 is now running
+Running: PID 1, PRIORITY 0, PC 68
+Current Iteration: 5
+Q0: 35  - Quantum Size: 5
+Q1: 1   - Quantum Size: 13
+Q2: 0   - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+
+
+...
+
+
+EVENT: IO Trap Called for PID 3 on IO Device 0
+Current Iteration: 17
+Q0: 33  - Quantum Size: 5
+Q1: 3   - Quantum Size: 13
+Q2: 0   - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+IO Device 0 queue contains 1 PCBs.
+Head of IO device 0 queue: PID3 
+
+EVENT: Dispatch - PID 4 is now running
+Running: PID 4, PRIORITY 0, PC 66
+Current Iteration: 17
+Q0: 32  - Quantum Size: 5
+Q1: 3   - Quantum Size: 13
+Q2: 0   - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+IO Device 0 queue contains 1 PCBs.
+Head of IO device 0 queue: PID3 
+
+
+...
+
+
+EVENT: PID 13 ran out of time - moved to ready queue.
+EVENT: Dispatch - PID 14 is now running
+Running: PID 14, PRIORITY 0, PC 354
+Current Iteration: 65
+Q0: 22  - Quantum Size: 5
+Q1: 12  - Quantum Size: 13
+Q2: 0   - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+IO Device 0 queue contains 1 PCBs.
+Head of IO device 0 queue: PID3 
+IO Device 1 queue contains 1 PCBs.
+Head of IO device 1 queue: PID8 
+
+EVENT: IO Interrupt - PID 3 ready
+Running: PID 14, PRIORITY 0, PC 354
+Current Iteration: 67
+Q0: 23  - Quantum Size: 5
+Q1: 12  - Quantum Size: 13
+Q2: 0   - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+IO Device 1 queue contains 1 PCBs.
+Head of IO device 1 queue: PID8 
+
+
+...
+
+
+EVENT: Terminate Trap Called for PID 33
+Running: PID 33, PRIORITY 1, PC 28
+Current Iteration: 523
+Q0: 0   - Quantum Size: 5
+Q1: 4   - Quantum Size: 13
+Q2: 23  - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+IO Device 0 queue contains 4 PCBs.
+Head of IO device 0 queue: PID3 
+IO Device 1 queue contains 5 PCBs.
+Head of IO device 1 queue: PID8 
+
+EVENT: Dispatch - PID 34 is now running
+Running: PID 34, PRIORITY 1, PC 148
+Current Iteration: 523
+Q0: 0   - Quantum Size: 5
+Q1: 3   - Quantum Size: 13
+Q2: 23  - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+IO Device 0 queue contains 4 PCBs.
+Head of IO device 0 queue: PID3 
+IO Device 1 queue contains 5 PCBs.
+Head of IO device 1 queue: PID8 
+
+
+...
+
+
+EVENT: Timer Interrupt
+Running: PID 36, PRIORITY 1, PC 349
+Current Iteration: 563
+Q0: 0   - Quantum Size: 5
+Q1: 1   - Quantum Size: 13
+Q2: 24  - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+IO Device 0 queue contains 4 PCBs.
+Head of IO device 0 queue: PID17 
+IO Device 1 queue contains 6 PCBs.
+Head of IO device 1 queue: PID8 
+
+EVENT: Priorities Reset
+Running: PID 36, PRIORITY 0, PC 362
+Current Iteration: 563
+Q0: 25  - Quantum Size: 5
+Q1: 0   - Quantum Size: 13
+Q2: 0   - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+IO Device 0 queue contains 4 PCBs.
+Head of IO device 0 queue: PID17 
+IO Device 1 queue contains 6 PCBs.
+Head of IO device 1 queue: PID8
+
+
+...
+
+
+EVENT: Dispatch - PID 355 is now running
+Running: PID 355, PRIORITY 0, PC 51
+Current Iteration: 9988
+Q0: 39  - Quantum Size: 5
+Q1: 99  - Quantum Size: 13
+Q2: 0   - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+IO Device 0 queue contains 135 PCBs.
+Head of IO device 0 queue: PID109 
+IO Device 1 queue contains 131 PCBs.
+Head of IO device 1 queue: PID48 
+
+EVENT: IO Trap Called for PID 355 on IO Device 1
+Current Iteration: 9989
+Q0: 39  - Quantum Size: 5
+Q1: 99  - Quantum Size: 13
+Q2: 0   - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+IO Device 0 queue contains 135 PCBs.
+Head of IO device 0 queue: PID109 
+IO Device 1 queue contains 132 PCBs.
+Head of IO device 1 queue: PID48 
+
+EVENT: Dispatch - PID 356 is now running
+Running: PID 356, PRIORITY 0, PC 296
+Current Iteration: 9989
+Q0: 38  - Quantum Size: 5
+Q1: 99  - Quantum Size: 13
+Q2: 0   - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+IO Device 0 queue contains 135 PCBs.
+Head of IO device 0 queue: PID109 
+IO Device 1 queue contains 132 PCBs.
+Head of IO device 1 queue: PID48 
+
+EVENT: Timer Interrupt
+Running: PID 356, PRIORITY 0, PC 296
+Current Iteration: 9994
+Q0: 38  - Quantum Size: 5
+Q1: 99  - Quantum Size: 13
+Q2: 0   - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+IO Device 0 queue contains 135 PCBs.
+Head of IO device 0 queue: PID109 
+IO Device 1 queue contains 132 PCBs.
+Head of IO device 1 queue: PID48 
+
+EVENT: PID 356 ran out of time - moved to ready queue.
+EVENT: Dispatch - PID 357 is now running
+Running: PID 357, PRIORITY 0, PC 80
+Current Iteration: 9994
+Q0: 37  - Quantum Size: 5
+Q1: 100 - Quantum Size: 13
+Q2: 0   - Quantum Size: 21
+Q3: 0   - Quantum Size: 29
+Q4: 0   - Quantum Size: 37
+Q5: 0   - Quantum Size: 45
+Q6: 0   - Quantum Size: 53
+Q7: 0   - Quantum Size: 61
+Q8: 0   - Quantum Size: 69
+Q9: 0   - Quantum Size: 77
+Q10: 0  - Quantum Size: 85
+Q11: 0  - Quantum Size: 93
+Q12: 0  - Quantum Size: 101
+Q13: 0  - Quantum Size: 109
+Q14: 0  - Quantum Size: 117
+Q15: 0  - Quantum Size: 125
+IO Device 0 queue contains 135 PCBs.
+Head of IO device 0 queue: PID109 
+IO Device 1 queue contains 132 PCBs.
+Head of IO device 1 queue: PID48 
