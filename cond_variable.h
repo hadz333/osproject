@@ -6,9 +6,8 @@
 #include "mutex_lock.h"
 #endif
 
-#ifndef MUTEX_LOCK_H
-#define MUTEX_LOCK_H
-#include "mutex_lock.h"
+#ifndef COND_VARIABLE_H
+#define COND_VARIABLE_H
 
 typedef struct _Cond_Variable {
     FIFOq_p queue;
