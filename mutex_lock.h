@@ -1,9 +1,6 @@
-#ifndef FIFO_QUEUE_H
-#include "fifo_queue.h"
-#endif
-
 #ifndef MUTEX_LOCK_H
 #define MUTEX_LOCK_H
+#include "fifo_queue.h"
 typedef struct Lock {
     FIFOq_p queue;
     int flag;
