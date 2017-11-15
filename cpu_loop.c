@@ -1,8 +1,8 @@
 /*
- * TCSS 422 Problem 4
- *   Dakota Crane and Keegan Wantz.
+ * TCSS 422 Scheduler Simulation
  */
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,6 +25,15 @@
 #define NUM_IO_DEVICES 2
 #define IO_DELAY_BASE 10
 #define IO_DELAY_MOD 100
+#define TIMER_SLEEP 1000000
+
+
+/* Mutexes */
+pthread_mutex_t timer_lock = PTHREAD_MUTEX_INITIALIZER;
+
+int program_executing;
+
+pthread_t timer_thread;
 
 /* enum for various process states. */
 enum interrupt_type {
@@ -56,7 +65,7 @@ void io_interrupt(unsigned int io_device);
  **************/
 
 /* Timer "thread" that checks if execution count == quantum size */
-int timer();
+void *timer();
 /* IO "thread" that checks if the IO timer has hit 0. */
 int io_check(unsigned int io_device);
 
@@ -138,17 +147,21 @@ unsigned int sys_stack;
 
 /* Main loop. */
 int main(void) {
-    int program_executing = 1;
-
+    program_executing = 1;
+    
     initalize_system();
 
     while (program_executing) {
-        program_executing = cpu();
-        current_iteration++;
-        if (current_iteration > TEST_ITERATIONS)
-            program_executing = 0;
+        if (pthread_mutex_trylock(&timer_lock) == 0) {
+            program_executing = cpu();
+            current_iteration++;
+            if (current_iteration > TEST_ITERATIONS)
+                program_executing = 0;
+            pthread_mutex_unlock(&timer_lock);
+        }
     }
-    deallocate_system();
+    //deallocate_system();
+    pthread_join(timer_thread, NULL);
     return program_executing;
 }
 
@@ -177,12 +190,7 @@ int cpu() {
         }
     }
 
-    is_interrupt = timer();
-    if (is_interrupt == 1) {
-        printf("EVENT: Timer Interrupt\n");
-        print_on_event();
-        pseudo_time_interrupt();
-    }
+    
 
     /*
      * IO INTERRUPT: Check for IO completion interrupt.
@@ -262,12 +270,17 @@ void io_interrupt(unsigned int io_device) {
 /*
  * Determines whether it is time to fire the time interrupt or not.
  */
-int timer() {
-    timer_downcounter--;
-    if (timer_downcounter == 0) {
-        return 1;
-    } else {
-        return 0;
+void *timer() {
+    for (;;){
+        struct timespec timersleep;
+        timersleep.tv_nsec = 1000000;
+        nanosleep(0, &timersleep);
+        pthread_mutex_lock(&timer_lock);
+        printf("EVENT: Timer Interrupt\n");
+        print_on_event();
+        pseudo_time_interrupt();
+        pthread_mutex_unlock(&timer_lock);
+        if (program_executing == 0) break;
     }
 }
 
@@ -367,7 +380,6 @@ void scheduler(enum interrupt_type type) {
             pq_enqueue(ready_queue, running_process);
             printf("EVENT: PID %u ran out of time - moved to ready queue.\n", running_process->pid);
             running_process = NULL;
-
         }
     }
 
@@ -403,7 +415,7 @@ void dispatcher() {
         /* This is simulating popping the top of the SysStack into the CPU PC. */
         cpu_pc = sys_stack;
         /* Set the timer's downcounter to the quantum size of the newly-running proc */
-        timer_downcounter = quantum_times[running_process->priority];
+        //timer_downcounter = quantum_times[running_process->priority];
     }
 }
 
@@ -455,10 +467,12 @@ void initalize_system() {
     cpu_pc = 0;
     sys_stack = 0;
     cpu_cycles_since_reset = 0;
-    timer_downcounter = 0;
+//    timer_downcounter = 0;
 
     /* Allocate new PCBs and push to new_procceses */
     generate_pcbs();
+
+    pthread_create(&timer_thread, NULL, timer, NULL);
 }
 
 /*
