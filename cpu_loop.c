@@ -11,6 +11,8 @@
 #include "pcb.h"
 #include "fifo_queue.h"
 #include "priority_queue.h"
+#include "mutex_lock.h"
+#include "cond_variable.h"
 
 /* The number of proccesses (minus one) to generate on initialization. */
 #define NUM_PROCESSES 40
