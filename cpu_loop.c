@@ -98,7 +98,7 @@ void handle_priority_reset();
  ***************/
 
  /* Allocates all system resoucres. */
-void initalize_system();
+void initialize_system();
 /* Builds a table of minimum cpu */
 void build_quantum_times();
 /* Generates NUM_PROCESSES PCBs. */
@@ -151,9 +151,9 @@ unsigned int sys_stack;
 int main(void) {
     program_executing = 1;
     
-    initalize_system();
+    initialize_system();
 
-    while (program_executing) {
+    while (program_executing) { // TODO: add trylock for io interrupt lock
         if (pthread_mutex_trylock(&timer_lock) == 0) {
             program_executing = cpu();
             current_iteration++;
@@ -162,8 +162,8 @@ int main(void) {
             pthread_mutex_unlock(&timer_lock);
         }
     }
-    //deallocate_system();
     pthread_join(timer_thread, NULL);
+    deallocate_system();
     return program_executing;
 }
 
@@ -272,7 +272,7 @@ void io_interrupt(unsigned int io_device) {
 /*
  * Determines whether it is time to fire the time interrupt or not.
  */
-void *timer() {
+void *timer() { 
     for (;;){
         struct timespec timersleep;
         timersleep.tv_nsec = 1000000;
@@ -286,7 +286,7 @@ void *timer() {
     }
 }
 
-/* IO "thread" that checks if the IO timer has hit 0. TODO: IMPLEMENT THIS */
+/* IO "thread" that checks if the IO timer has hit 0. */
 int io_check(unsigned int io_device) {
     if (!q_is_empty(io_queues[io_device])) {
         io_queue_timers[io_device]--;
@@ -447,7 +447,7 @@ void handle_priority_reset() {
 /*
  * Initializes all system variables.
  */
-void initalize_system() {
+void initialize_system() {
     int i;
     /* Seed the RNG. */
     srand(time(NULL));
@@ -469,12 +469,11 @@ void initalize_system() {
     cpu_pc = 0;
     sys_stack = 0;
     cpu_cycles_since_reset = 0;
-//    timer_downcounter = 0;
 
     /* Allocate new PCBs and push to new_procceses */
     generate_pcbs();
 
-    pthread_create(&timer_thread, NULL, timer, NULL);
+    pthread_create(&timer_thread, NULL, timer, NULL); // TODO: move to right place
 }
 
 /*
