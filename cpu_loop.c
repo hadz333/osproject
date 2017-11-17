@@ -32,8 +32,11 @@
 
 /* Mutexes */
 pthread_mutex_t timer_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t io_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t timer_cond = PTHREAD_COND_INITIALIZER;
 
 int program_executing;
+int initialized_cond = 0;
 
 pthread_t timer_thread;
 
@@ -154,7 +157,7 @@ int main(void) {
     initialize_system();
 
     while (program_executing) { // TODO: add trylock for io interrupt lock
-        if (pthread_mutex_trylock(&timer_lock) == 0) {
+        if (pthread_mutex_trylock(&timer_lock) == 0 && pthread_mutex_trylock(&io_lock) == 0) {
             program_executing = cpu();
             current_iteration++;
             if (current_iteration > TEST_ITERATIONS)
@@ -254,8 +257,9 @@ void pseudo_time_interrupt() {
 /*
  * Interrupt that happens for IO.
  */
-void io_interrupt(unsigned int io_device) {
+void *io_interrupt(unsigned int * io_device) {
     PCB_p done_pcb;
+    pthread_mutex_lock(&io_lock);
     done_pcb = q_dequeue(io_queues[io_device]);
     if (done_pcb != NULL) {
         /* Increment its PC by 1 to prevent it from going back into IO immediately. */
@@ -266,7 +270,7 @@ void io_interrupt(unsigned int io_device) {
         printf("PID %u ready\n", done_pcb->pid);
         scheduler(INT_IO);
     }
-    
+    pthread_mutex_unlock(&io_lock);
 }
 
 /*
@@ -278,11 +282,19 @@ void *timer() {
         timersleep.tv_nsec = 1000000;
         nanosleep(0, &timersleep);
         pthread_mutex_lock(&timer_lock);
+        initialized_cond = 1;
+        //set flag
+        
         printf("EVENT: Timer Interrupt\n");
         print_on_event();
         pseudo_time_interrupt();
+        
+        //unset flag
+        initialized_cond = 0;
+        pthread_cond_signal(timer_cond);
         pthread_mutex_unlock(&timer_lock);
         if (program_executing == 0) break;
+        
     }
 }
 
@@ -346,6 +358,14 @@ void scheduler(enum interrupt_type type) {
     /* Both values initialized later for speed purposes. */
     PCB_p new_process;
     PCB_p zombie_cleanup;
+    
+    if (type == INT_IO && initialized_cond == 1 && pthread_cond_wait(&timer_cond, &io_lock)) {
+        // get shared lock
+        
+        
+        
+        // release shared lock
+    }
 
     /* If more than S cycles have elapsed, reset all processes to highest priority */
     if (cpu_cycles_since_reset >= S) {
@@ -357,6 +377,8 @@ void scheduler(enum interrupt_type type) {
         printf("EVENT: Priorities Reset\n");
         print_on_event();
     }
+    
+    if (type == INT_IO && initialized_cond == 1 && pthread_cond_wait(&timer_cond, &io_lock));
 
     /*
      * Handle new processes -> ready queue.
@@ -371,6 +393,8 @@ void scheduler(enum interrupt_type type) {
             pq_enqueue(ready_queue, new_process);
         }
     }
+    
+    if (type == INT_IO && initialized_cond == 1 && pthread_cond_wait(&timer_cond, &io_lock));
 
 
     /* Handle interrupts. */
@@ -384,10 +408,14 @@ void scheduler(enum interrupt_type type) {
             running_process = NULL;
         }
     }
+    
+    if (type == INT_IO && initialized_cond == 1 && pthread_cond_wait(&timer_cond, &io_lock));
 
     if (running_process == NULL) {
         dispatcher();
     }
+    
+    if (type == INT_IO && initialized_cond == 1 && pthread_cond_wait(&timer_cond, &io_lock));
 
     /* Handle clearing the zombie queue. */
     if (zombie_queue->size >= 4) {
@@ -474,6 +502,11 @@ void initialize_system() {
     generate_pcbs();
 
     pthread_create(&timer_thread, NULL, timer, NULL); // TODO: move to right place
+    unsigned int * one = 0;
+    unsigned int * two = 1;
+    pthread_create(&io_thread_1, NULL, io_interrupt, (void *) one);
+    pthread_create(&io_thread_2, NULL, io_interrupt, (void *) two);
+
 }
 
 /*
