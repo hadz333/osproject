@@ -229,22 +229,22 @@ int cpu() {
             i--;
             printf("EVENT: IO Trap Called for PID %u on IO Device %u\n", running_process->pid, i);
 
-	    pthread_mutex_lock(&timer_init_lock);
-	    while (initialized_cond == 1) {
-		pthread_mutex_unlock(&timer_lock);
-		pthread_cond_wait(NULL, &timer_init_lock);
-		pthread_mutex_lock(&timer_lock);
-	    }
-	    pthread_mutex_unlock(&timer_init_lock);
+	    //pthread_mutex_lock(&timer_init_lock);
+	    //while (initialized_cond == 1) {
+	    //	pthread_mutex_unlock(&timer_lock);
+	    //	pthread_cond_wait(NULL, &timer_init_lock);
+	    //	pthread_mutex_lock(&timer_lock);
+	    //}
+	    //pthread_mutex_unlock(&timer_init_lock);
 
-	    
-	    pthread_mutex_lock(&io_init_lock);
-	    while (initialized_io == 1) {
-		pthread_mutex_unlock(&timer_lock);
-		pthread_cond_wait(NULL, &io_init_lock);
-		pthread_mutex_lock(&timer_lock);
-	    }
-	    pthread_mutex_unlock(&io_init_lock);
+	    //
+	    //pthread_mutex_lock(&io_init_lock);
+	    //while (initialized_io == 1) {
+	    //	pthread_mutex_unlock(&timer_lock);
+	    //	pthread_cond_wait(NULL, &io_init_lock);
+	    //	pthread_mutex_lock(&timer_lock);
+	    //}
+	    //pthread_mutex_unlock(&io_init_lock);
 
 	    //pthread_mutex_unlock(&timer_lock);
             trap_io(i);
@@ -535,13 +535,31 @@ void lock_thread_in_scheduler(enum interrupt_type type) {
         // is timer running
         
         //acquire lock
-        pthread_mutex_lock(&timer_init_lock);
-        if (initialized_cond == 1) {
-            pthread_mutex_unlock(&timer_init_lock);
-            pthread_cond_wait(&timer_cond, &shared_lock);
-        } else {
-            pthread_mutex_unlock(&timer_init_lock);
-        } 
+        //pthread_mutex_lock(&timer_init_lock);
+        //if (initialized_cond == 1) {
+        //    pthread_mutex_unlock(&timer_init_lock);
+        //    pthread_cond_wait(&timer_cond, &shared_lock);
+        //} else {
+        //    pthread_mutex_unlock(&timer_init_lock);
+        //} 
+	  pthread_mutex_lock(&timer_init_lock);
+	  while (initialized_cond == 1) {
+	      pthread_mutex_unlock(&timer_lock);
+	      pthread_cond_wait(NULL, &timer_init_lock);
+	      pthread_mutex_lock(&timer_lock);
+	  }
+	  pthread_mutex_unlock(&timer_init_lock);
+
+	  
+	  if (int == trap) {
+	      pthread_mutex_lock(&io_init_lock);
+	      while (initialized_io == 1) {
+		  pthread_mutex_unlock(&timer_lock);
+		  pthread_cond_wait(NULL, &io_init_lock);
+		  pthread_mutex_lock(&timer_lock);
+	      }
+	      pthread_mutex_unlock(&io_init_lock);
+	  }
 
 
 	// need to order io_int -> io_trap
@@ -550,13 +568,13 @@ void lock_thread_in_scheduler(enum interrupt_type type) {
 	//release io_lock
 
 	// now check if io is running... if so and you happen to be a trap, defer
-        pthread_mutex_lock(&io_init_lock);
-        if (type == TRAP_IO && initialized_io == 1) {
-            pthread_mutex_unlock(&io_init_lock);
-            pthread_cond_wait(&timer_cond, &shared_lock);
-        } else {
-            pthread_mutex_unlock(&io_init_lock);
-        } 
+        //pthread_mutex_lock(&io_init_lock);
+        //if (type == TRAP_IO && initialized_io == 1) {
+        //    pthread_mutex_unlock(&io_init_lock);
+        //    pthread_cond_wait(&timer_cond, &shared_lock);
+        //} else {
+        //    pthread_mutex_unlock(&io_init_lock);
+        //} 
 
 
     }
