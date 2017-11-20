@@ -35,13 +35,17 @@ pthread_mutex_t timer_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t shared_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t io_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t timer_cond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cpu_cond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t io_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t io_cond_1 = PTHREAD_COND_INITIALIZER;
 pthread_cond_t io_cond_2 = PTHREAD_COND_INITIALIZER;
 
 pthread_mutex_t timer_init_lock = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t io_init_lock = PTHREAD_MUTEX_INITIALIZER;
 
 int program_executing;
 int initialized_cond = 0;
+int initialized_io = 0;
 
 pthread_t timer_thread;
 pthread_t io_thread_1;
@@ -53,9 +57,8 @@ enum interrupt_type {
     INT_TIME,
     INT_IO,
     INT_TERMINATE,
-
-
-    INTERRUPT_COUNT
+    TRAP_IO,
+    INTERRUPT_COUNT,
 };
 
 /* FUNCTIONS */
@@ -164,7 +167,7 @@ int main(void) {
     initialize_system();
 
     while (program_executing) { // TODO: add trylock for io interrupt lock
-        if (pthread_mutex_trylock(&timer_lock) == 0 && pthread_mutex_trylock(&io_lock) == 0) {
+        if (pthread_mutex_trylock(&timer_lock) == 0) {//pthread_mutex_trylock(&io_lock) == 0) {
             program_executing = cpu();
             current_iteration++;
             if (current_iteration > TEST_ITERATIONS)
@@ -225,7 +228,27 @@ int cpu() {
             /* Test IO trap returns 1 larger than the IO device to use. */
             i--;
             printf("EVENT: IO Trap Called for PID %u on IO Device %u\n", running_process->pid, i);
+
+	    pthread_mutex_lock(&timer_init_lock);
+	    while (initialized_cond == 1) {
+		pthread_mutex_unlock(&timer_lock);
+		pthread_cond_wait(NULL, &timer_init_lock);
+		pthread_mutex_lock(&timer_lock);
+	    }
+	    pthread_mutex_unlock(&timer_init_lock);
+
+	    
+	    pthread_mutex_lock(&io_init_lock);
+	    while (initialized_io == 1) {
+		pthread_mutex_unlock(&timer_lock);
+		pthread_cond_wait(NULL, &io_init_lock);
+		pthread_mutex_lock(&timer_lock);
+	    }
+	    pthread_mutex_unlock(&io_init_lock);
+
+	    //pthread_mutex_unlock(&timer_lock);
             trap_io(i);
+	    //pthread_mutex_lock(&timer_lock);
         }
     }
 
@@ -267,7 +290,19 @@ void pseudo_time_interrupt() {
 void *io_interrupt(unsigned int * io_device) {
     for (;;) {
         PCB_p done_pcb;
-        pthread_mutex_lock(&io_lock);
+
+
+	pthread_mutex_lock(io_lock);
+
+	//lock
+	// raise flag
+	pthread_mutex_lock(&io_init_lock);
+	initialized_io = 1;
+	pthread_mutex_unlock(&io_init_lock);
+	//unlock
+
+
+        pthread_mutex_lock(&timer_lock);
         
         if (q_is_empty(io_queues[*io_device])) {
             if (*io_device == 0) {
@@ -280,18 +315,20 @@ void *io_interrupt(unsigned int * io_device) {
             s.tv_nsec = (rand() % 4206969) + 1;
             nanosleep(NULL, &s);
         }
-        
-        done_pcb = q_dequeue(io_queues[*io_device]);
-        if (done_pcb != NULL) {
-            /* Increment its PC by 1 to prevent it from going back into IO immediately. */
-            done_pcb->context->pc++;
-            PCB_assign_state(done_pcb, STATE_READY);
-          pq_enqueue(ready_queue, done_pcb);
 
-            printf("PID %u ready\n", done_pcb->pid);
-            scheduler(INT_IO);
-        }
-        pthread_mutex_unlock(&io_lock);
+        
+	scheduler(INT_IO);
+
+
+	// lock
+	// lower flag
+	// unlock
+	pthread_mutex_lock(&io_init_lock);
+	initialized_io = 0;
+	pthread_mutex_unlock(&io_init_lock);
+
+        pthread_mutex_unlock(&timer_lock);
+	pthread_mutex_unlock(io_lock);
     }
 }
 
@@ -301,26 +338,31 @@ void *io_interrupt(unsigned int * io_device) {
 void *timer() { 
     for (;;){
         struct timespec timersleep;
-        timersleep.tv_nsec = 1000000;
+        timersleep.tv_nsec = 10000000;
         nanosleep(0, &timersleep);
-        pthread_mutex_lock(&timer_lock);
-        
-        //set flag to denote timer has started
+
         pthread_mutex_lock(&timer_init_lock);
         initialized_cond = 1;
         pthread_mutex_unlock(&timer_init_lock);
+
+        pthread_mutex_lock(&timer_lock);
+        
+        //set flag to denote timer has started
 
         printf("EVENT: Timer Interrupt\n");
         print_on_event();
         pseudo_time_interrupt();
         
         //unset flag
+
         pthread_mutex_lock(&timer_init_lock);
         initialized_cond = 0;
         pthread_mutex_unlock(&timer_init_lock);
 
-        pthread_cond_broadcast(&timer_cond);
+        pthread_cond_broadcast(&io_cond); // broadcast to io dev
+        pthread_cond_broadcast(&cpu_cond); // boardcast to cpu
         pthread_mutex_unlock(&timer_lock);
+
         if (program_executing == 0) break;
         
     }
@@ -341,12 +383,19 @@ int io_check(unsigned int io_device) {
  * Pre: The running_process must not be NULL.
  */
 void trap_io(unsigned int io_device) {
+
+    // critical section
+    // io cannot actually happen at this point
+
+
     running_process->state = STATE_BLOCKED;
     q_enqueue(io_queues[io_device], running_process);
     io_queue_timers[io_device] = quantum_times[running_process->priority] + IO_DELAY_BASE + rand() % IO_DELAY_MOD;
     running_process = NULL;
     print_on_event();
     scheduler(INT_IO);
+
+
     if (io_device == 0) {
         pthread_cond_signal(io_cond_1);
     } else {
@@ -392,6 +441,23 @@ void scheduler(enum interrupt_type type) {
     PCB_p new_process;
     PCB_p zombie_cleanup;
     
+
+
+    pthread_mutex_lock(&shared_lock);
+    if (type == INT_TIME) {
+	done_pcb = q_dequeue(io_queues[*io_device]);
+	if (done_pcb != NULL) {
+	    /* Increment its PC by 1 to prevent it from going back into IO immediately. */
+	    done_pcb->context->pc++;
+	    PCB_assign_state(done_pcb, STATE_READY);
+	    pq_enqueue(ready_queue, done_pcb);
+
+	    printf("PID %u ready\n", done_pcb->pid);
+	}
+    }
+    lock_thread_in_scheduler(type);
+
+
     pthread_mutex_lock(&shared_lock);
 
     /* If more than S cycles have elapsed, reset all processes to highest priority */
@@ -473,13 +539,26 @@ void lock_thread_in_scheduler(enum interrupt_type type) {
         if (initialized_cond == 1) {
             pthread_mutex_unlock(&timer_init_lock);
             pthread_cond_wait(&timer_cond, &shared_lock);
-        else {
+        } else {
             pthread_mutex_unlock(&timer_init_lock);
         } 
-        
-        // if type == trap
-        // if interrupt initialized > 0
-        // sleepy time
+
+
+	// need to order io_int -> io_trap
+	//acquire io_lock
+	// checkcond... sleep if need be
+	//release io_lock
+
+	// now check if io is running... if so and you happen to be a trap, defer
+        pthread_mutex_lock(&io_init_lock);
+        if (type == TRAP_IO && initialized_io == 1) {
+            pthread_mutex_unlock(&io_init_lock);
+            pthread_cond_wait(&timer_cond, &shared_lock);
+        } else {
+            pthread_mutex_unlock(&io_init_lock);
+        } 
+
+
     }
 }
 
