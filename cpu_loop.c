@@ -356,7 +356,7 @@ void *io_interrupt(unsigned int * io_device) {
 /*
  * Determines whether it is time to fire the time interrupt or not.
  */
-void *timer() { 
+void *timer() {
     for (;;){
         struct timespec timersleep;
         timersleep.tv_nsec = 10000000;
@@ -546,12 +546,14 @@ void scheduler(enum interrupt_type type) {
 }
 
 void lock_thread_by_priority(enum interrupt_type type) {
+
+    // timer interrupt waits for no thread!
     if (type != INT_TIME) {
 	
 	//acquire lock
 	//pthread_mutex_lock(&timer_init_lock);
 
-	// need to make this non blocking otherwise we just sleep endlessly!
+	// need to make this non blocking otherwise thread will wait too long
 	while (pthread_mutex_trylock(&timer_init_lock) == 1) {
 	    while (initialized_cond == 1) {
 		pthread_mutex_unlock(&timer_lock);
@@ -567,6 +569,7 @@ void lock_thread_by_priority(enum interrupt_type type) {
 	// checkcond... sleep if need be
 	//release io_lock
 
+	// this block forces the trap routine to defer to the io threads
 	if (type == TRAP_IO) {
 	    while(pthread_mutex_trylock(&io_init_lock) == 1) {
 		while (initialized_io == 1) {
