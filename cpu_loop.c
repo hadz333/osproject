@@ -32,11 +32,12 @@
 
 /* Mutexes */
 pthread_mutex_t timer_lock = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t shared_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t io_lock = PTHREAD_MUTEX_INITIALIZER;
+
 pthread_cond_t timer_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cpu_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t io_cond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t io_trap_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t io_cond_1 = PTHREAD_COND_INITIALIZER;
 pthread_cond_t io_cond_2 = PTHREAD_COND_INITIALIZER;
 
@@ -212,13 +213,13 @@ int cpu() {
      * Does not reset is_interrupt, because io int will not change
      * the running process, just bump the IO's queue to the running queue.
      */
-    for (i = 0; i < NUM_IO_DEVICES; i++) {
-        if (io_check(i)) {
-            printf("EVENT: IO Interrupt - ");
-            io_interrupt(i);
-            print_on_event();
-        }
-    }
+    //for (i = 0; i < NUM_IO_DEVICES; i++) {
+    //    if (io_check(i)) {
+    //        printf("EVENT: IO Interrupt - ");
+    //        io_interrupt(i);
+    //        print_on_event();
+    //    }
+    //}
 
 
     /* IO TRAP: Check for IO trap */
@@ -227,28 +228,9 @@ int cpu() {
         if (i) {
             /* Test IO trap returns 1 larger than the IO device to use. */
             i--;
+	    //lock_thread_by_priority(TRAP_IO);
             printf("EVENT: IO Trap Called for PID %u on IO Device %u\n", running_process->pid, i);
-
-	    //pthread_mutex_lock(&timer_init_lock);
-	    //while (initialized_cond == 1) {
-	    //	pthread_mutex_unlock(&timer_lock);
-	    //	pthread_cond_wait(NULL, &timer_init_lock);
-	    //	pthread_mutex_lock(&timer_lock);
-	    //}
-	    //pthread_mutex_unlock(&timer_init_lock);
-
-	    //
-	    //pthread_mutex_lock(&io_init_lock);
-	    //while (initialized_io == 1) {
-	    //	pthread_mutex_unlock(&timer_lock);
-	    //	pthread_cond_wait(NULL, &io_init_lock);
-	    //	pthread_mutex_lock(&timer_lock);
-	    //}
-	    //pthread_mutex_unlock(&io_init_lock);
-
-	    //pthread_mutex_unlock(&timer_lock);
             trap_io(i);
-	    //pthread_mutex_lock(&timer_lock);
         }
     }
 
@@ -385,16 +367,18 @@ int io_check(unsigned int io_device) {
 void trap_io(unsigned int io_device) {
 
     // critical section
-    // io cannot actually happen at this point
-
-
+    // io/timer cannot actually happen in this section as the lock is acquired at this point
+    
     running_process->state = STATE_BLOCKED;
     q_enqueue(io_queues[io_device], running_process);
     io_queue_timers[io_device] = quantum_times[running_process->priority] + IO_DELAY_BASE + rand() % IO_DELAY_MOD;
     running_process = NULL;
     print_on_event();
-    scheduler(INT_IO);
 
+    // after this section check if another thread should take over
+    lock_thread_by_priority(TRAP_IO);
+
+    scheduler(INT_IO);
 
     if (io_device == 0) {
         pthread_cond_signal(io_cond_1);
@@ -440,10 +424,16 @@ void scheduler(enum interrupt_type type) {
     /* Both values initialized later for speed purposes. */
     PCB_p new_process;
     PCB_p zombie_cleanup;
-    
+    PCB_p done_pcb;
 
+    // The idea behind calling lock_thread_in_scheduler is to defer to a thread 
+    // with higher priority.
+    // Each block of code in the scheduler is a critical section.
+    // After each critical section, give a chance for an interrupt by checking
+    // for a signal sent by either a timer or by the io device
 
-    pthread_mutex_lock(&shared_lock);
+    lock_thread_in_scheduler(type);
+
     if (type == INT_TIME) {
 	done_pcb = q_dequeue(io_queues[*io_device]);
 	if (done_pcb != NULL) {
@@ -455,10 +445,8 @@ void scheduler(enum interrupt_type type) {
 	    printf("PID %u ready\n", done_pcb->pid);
 	}
     }
+
     lock_thread_in_scheduler(type);
-
-
-    pthread_mutex_lock(&shared_lock);
 
     /* If more than S cycles have elapsed, reset all processes to highest priority */
     if (cpu_cycles_since_reset >= S) {
@@ -526,57 +514,34 @@ void scheduler(enum interrupt_type type) {
         printf("EVENT: Zombie queue emptied\n");
         print_on_event();
     }
-    
-    pthread_mutex_unlock(&shared_lock);
 }
 
-void lock_thread_in_scheduler(enum interrupt_type type) {
-      if (type != INT_TIME) {
-        // is timer running
-        
-        //acquire lock
-        //pthread_mutex_lock(&timer_init_lock);
-        //if (initialized_cond == 1) {
-        //    pthread_mutex_unlock(&timer_init_lock);
-        //    pthread_cond_wait(&timer_cond, &shared_lock);
-        //} else {
-        //    pthread_mutex_unlock(&timer_init_lock);
-        //} 
-	  pthread_mutex_lock(&timer_init_lock);
-	  while (initialized_cond == 1) {
-	      pthread_mutex_unlock(&timer_lock);
-	      pthread_cond_wait(NULL, &timer_init_lock);
-	      pthread_mutex_lock(&timer_lock);
-	  }
-	  pthread_mutex_unlock(&timer_init_lock);
-
-	  
-	  if (int == trap) {
-	      pthread_mutex_lock(&io_init_lock);
-	      while (initialized_io == 1) {
-		  pthread_mutex_unlock(&timer_lock);
-		  pthread_cond_wait(NULL, &io_init_lock);
-		  pthread_mutex_lock(&timer_lock);
-	      }
-	      pthread_mutex_unlock(&io_init_lock);
-	  }
-
+void lock_thread_by_priority(enum interrupt_type type) {
+    if (type != INT_TIME) {
+	
+	//acquire lock
+	//pthread_mutex_lock(&timer_init_lock);
+	pthread_mutex_lock(&timer_init_lock);
+	while (initialized_cond == 1) {
+	    pthread_mutex_unlock(&timer_lock);
+	    pthread_cond_wait(&timer_cond, &timer_init_lock);
+	    pthread_mutex_lock(&timer_lock);
+	}
+	pthread_mutex_unlock(&timer_init_lock);
 
 	// need to order io_int -> io_trap
 	//acquire io_lock
 	// checkcond... sleep if need be
 	//release io_lock
-
-	// now check if io is running... if so and you happen to be a trap, defer
-        //pthread_mutex_lock(&io_init_lock);
-        //if (type == TRAP_IO && initialized_io == 1) {
-        //    pthread_mutex_unlock(&io_init_lock);
-        //    pthread_cond_wait(&timer_cond, &shared_lock);
-        //} else {
-        //    pthread_mutex_unlock(&io_init_lock);
-        //} 
-
-
+	if (type == TRAP_IO) {
+	    pthread_mutex_lock(&io_init_lock);
+	    while (initialized_io == 1) {
+		pthread_mutex_unlock(&timer_lock);
+		pthread_cond_wait(&io_cond, &io_init_lock);
+		pthread_mutex_lock(&timer_lock);
+	    }
+	    pthread_mutex_unlock(&io_init_lock);
+	}
     }
 }
 
@@ -654,6 +619,9 @@ void initialize_system() {
     generate_pcbs();
 
     pthread_create(&timer_thread, NULL, timer, NULL); // TODO: move to right place
+
+
+    // init io threads... 
     unsigned int * one = 0;
     unsigned int * two = 1;
     pthread_create(&io_thread_1, NULL, io_interrupt, (void *) one);
