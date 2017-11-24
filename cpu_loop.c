@@ -29,6 +29,13 @@
 #define IO_DELAY_MOD 100
 #define TIMER_SLEEP 1000000
 
+#define NUM_TYPE_PROCS 4
+#define MAX_IO_PROCS 50
+#define MAX_INTENSIVE_PROCS 50
+
+int count_io_procs = 0;
+int count_comp_procs = 0;
+
 
 /* Mutexes */
 pthread_mutex_t timer_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -176,7 +183,6 @@ int main(void) {
 
     while (program_executing) { // TODO: add trylock for io interrupt lock
         if (pthread_mutex_trylock(&timer_lock) == 0) {//pthread_mutex_trylock(&io_lock) == 0) {
-	    printf("should be going through here frequently");
             program_executing = cpu();
             current_iteration++;
             if (current_iteration > TEST_ITERATIONS)
@@ -185,10 +191,11 @@ int main(void) {
         }
     }
     pthread_join(timer_thread, NULL);
+    pthread_cond_signal(&io_cond_1);
+    pthread_cond_signal(&io_cond_2);
     pthread_join(io_thread_1, NULL);
     pthread_join(io_thread_2, NULL);
     deallocate_system();
-    printf("DONE HERE");
     return program_executing;
 }
 
@@ -217,38 +224,32 @@ int cpu() {
         }
     }
 
-    
-
-    /*
-     * IO INTERRUPT: Check for IO completion interrupt.
-     * Does not reset is_interrupt, because io int will not change
-     * the running process, just bump the IO's queue to the running queue.
-     */
-    //for (i = 0; i < NUM_IO_DEVICES; i++) {
-    //    if (io_check(i)) {
-    //        printf("EVENT: IO Interrupt - ");
-    //        io_interrupt(i);
-    //        print_on_event();
-    //    }
-    //}
-
+    // consider different kinds of procs!
 
     /* IO TRAP: Check for IO trap */
     if (running_process != NULL) {
-        i = test_io_trap();
-        if (i) {
-            /* Test IO trap returns 1 larger than the IO device to use. */
-            i--;
-	    //lock_thread_by_priority(TRAP_IO);
-            printf("EVENT: IO Trap Called for PID %u on IO Device %u\n", running_process->pid, i);
-            trap_io(i);
-        }
+	switch (running_process->proc_type) {
+	case IO:
+	    i = test_io_trap();
+	    if (i) {
+		/* Test IO trap returns 1 larger than the IO device to use. */
+		i--;
+		//lock_thread_by_priority(TRAP_IO);
+		printf("EVENT: IO Trap Called for PID %u on IO Device %u\n", running_process->pid, i);
+		trap_io(i);
+	    }
+	    break;
+	case INTENSIVE:
+	    break;
+	default:
+	    break;
+	}
     }
 
     /* TERMINATE TRAP: If the process has been running too long, zombify. */
     if (running_process != NULL && running_process->terminate != 0 && running_process->term_count >= running_process->terminate) {
-        //printf("EVENT: Terminate Trap Called for PID %u\n", running_process->pid);
-        //print_on_event();
+        printf("EVENT: Terminate Trap Called for PID %u\n", running_process->pid);
+        print_on_event();
         trap_terminate();
     }
 
@@ -305,10 +306,8 @@ void *io_interrupt(unsigned int * io_device) {
             nanosleep(NULL, &s);
         }
 
-	printf("wake up\n");
 	// mutex global thread lock
         pthread_mutex_lock(&timer_lock);
-	printf("put on a little makeup\n");
 
 	// lock
 	// raise flag
@@ -385,8 +384,6 @@ void *timer() {
         pthread_mutex_unlock(&timer_lock);
 
         pthread_cond_broadcast(&timer_cond); // broadcast to io dev
-        //pthread_cond_broadcast(&io_cond); // broadcast to io dev
-        //pthread_cond_broadcast(&cpu_cond); // boardcast to cpu
 
         if (program_executing == 0) break;
         
@@ -418,18 +415,15 @@ void trap_io(unsigned int io_device) {
     running_process = NULL;
     print_on_event();
 
-    printf("making it here\n");
     // after this section check if another thread should take over
-    lock_thread_by_priority(TRAP_IO);
+    //lock_thread_by_priority(TRAP_IO);
     printf("%d the io device # \n", io_device);
 
     scheduler(TRAP_IO);
 
     if (io_device == 0) {
-	printf("ATTACK IO 1!\n");
         pthread_cond_signal(&io_cond_1);
     } else {
-	printf("ATTACK IO 2!\n");
         pthread_cond_signal(&io_cond_2);
     }
 }
@@ -540,8 +534,8 @@ void scheduler(enum interrupt_type type) {
             zombie_cleanup = q_dequeue(zombie_queue);
             PCB_destroy(zombie_cleanup);
         }
-        //printf("EVENT: Zombie queue emptied\n");
-        //print_on_event();
+        printf("EVENT: Zombie queue emptied\n");
+        print_on_event();
     }
 }
 
@@ -565,9 +559,9 @@ void lock_thread_by_priority(enum interrupt_type type) {
 	pthread_mutex_unlock(&timer_init_lock);
 
 	// need to order io_int -> io_trap
-	//acquire io_lock
+	// acquire io_lock
 	// checkcond... sleep if need be
-	//release io_lock
+	// release io_lock
 
 	// this block forces the trap routine to defer to the io threads
 	if (type == TRAP_IO) {
@@ -696,14 +690,55 @@ void generate_pcbs() {
         /*
          * Randomly decide if one process will be not terminate or not.
          */
-        lottery = rand() % 1000;
-        if (lottery <= 5) {
-            new_pcb->terminate = 0;
-        }
+	int type = rand() % NUM_TYPE_PROCS;
+	switch (type) {
+	case 0: //IO CASE
+	    if (count_io_procs < MAX_IO_PROCS) {
+	    	new_pcb = make_pcb();
+	    	new_pcb->proc_type = IO;
+	    	count_io_procs++;
+	    	//num_to_make--;
+	    	if (lottery <= 5) {
+	    	    new_pcb->terminate = 0;
+	    	}
+		q_enqueue(new_queue, new_pcb);
+	    }
+	    break;
+	case 1: // computations case
+	    if (count_comp_procs < MAX_INTENSIVE_PROCS) {
+	    	new_pcb = make_pcb();
+	    	new_pcb->proc_type = INTENSIVE;
+	    	count_comp_procs++;
+	    	if (lottery <= 5) {
+	    	    new_pcb->terminate = 0;
+	    	}
+		q_enqueue(new_queue, new_pcb);
+	    }
+	    break;
+	case 2: // mutex case
+	    //lock_1 = lock_constructor();
+	    //lock_2 = lock_constructor();
 
-        if (new_pcb != NULL) {
-            q_enqueue(new_queue, new_pcb);
-        }
+	    //new_pcb = make_pcb();
+	    //new_pcb->lock_1 = lock_1;
+	    //new_pcb->lock_2 = lock_2;
+	    //new_pcb->proc_type = MUTEX_PROC;
+
+	    //new_pcb = make_pcb();
+	    //new_pcb->lock_1 = lock_1;
+	    //new_pcb->lock_2 = lock_2;
+	    //new_pcb->proc_type = MUTEX_PROC;
+	    //num_to_make--;
+
+	    // if we want deadlock
+	    // make_pcb_mutex(new_pcb, lock_2, lock_1);
+	case 3: // prod/consumer proc
+	default:
+	    break;
+	}
+        //if (new_pcb != NULL) {
+        //    q_enqueue(new_queue, new_pcb);
+        //}
     }
 }
 

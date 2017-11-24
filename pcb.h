@@ -31,6 +31,10 @@ typedef struct cpu_context {
 
 typedef CPU_context_s * CPU_context_p; // _p means that this is a pointer to a structure
 
+enum proc_type {
+    IO,
+    INTENSIVE,
+};
 /* enum for various process states. */
 enum state_type {
     /* New process. */
@@ -69,6 +73,8 @@ typedef struct pcb {
     unsigned int term_count; // counter - how many times has proc passed max_pc value
     unsigned int io_1_traps[NUM_IO_TRAPS];
     unsigned int io_2_traps[NUM_IO_TRAPS];
+
+    enum proc_type proc_type;
 
     // other items to be added as needed.
 
