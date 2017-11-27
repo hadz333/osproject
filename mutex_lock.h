@@ -9,8 +9,6 @@ typedef struct Lock {
 typedef Lock_s * Lock_p;
 
 
-
-
 typedef struct proc_to_lock_map {
     Lock_p lock_1;
     Lock_p lock_2;

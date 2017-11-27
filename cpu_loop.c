@@ -270,16 +270,26 @@ int cpu() {
 
 	    if (contains(running_process->unlock_1, cpu_pc, 4)) {
 		proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
-		release_lock(map->lock_1);
-		printf("UNLOCK 1\n");
+		if (map->proc == running_process) {
+		    release_lock(map->lock_1);
+		    unlock_and_release_waiting_procs(map->lock_1);
+		    printf("UNLOCK 1\n");
+		} else {
+		    printf("this shouldn't happen 1\n");
+		}
 
 	    }
 
 
 	    if (contains(running_process->unlock_2, cpu_pc, 4)) {
 		proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
-		release_lock(map->lock_2);
-		printf("UNLOCK 2\n");
+		if (map->proc == running_process) {
+		    release_lock(map->lock_2);
+		    unlock_and_release_waiting_procs(map->lock_2);
+		    printf("UNLOCK 2\n");
+		} else {
+		    printf("this shouldn't happen 2\n");
+		}
 	    }
 	    break;
 	case PROD:
@@ -463,6 +473,7 @@ void trap_io(unsigned int io_device) {
     running_process->state = STATE_BLOCKED;
     q_enqueue(io_queues[io_device], running_process);
     io_queue_timers[io_device] = quantum_times[running_process->priority] + IO_DELAY_BASE + rand() % IO_DELAY_MOD;
+    running_process->context->pc = cpu;
     running_process = NULL;
     print_on_event();
 
@@ -886,7 +897,15 @@ void deallocate_system() {
 
 void lock_trap(Lock_p lock) {
     printf("DROPPING IN HERE\n");
+    running_process->context->pc = cpu - 1;
     running_process->state = STATE_BLOCKED;
     running_process = NULL;
     scheduler(TRAP_IO);
+}
+
+void unlock_and_release_waiting_procs(Lock_p lock) {
+    FIFOq_p q = lock->waiting_procs;
+    while (!q_is_empty(q)) {
+	pq_enqueue(ready_queue, q_dequeue(q));
+    }
 }
