@@ -52,6 +52,7 @@ PCB_p PCB_create() {
     if (new_pcb != NULL) {
         new_pcb->context = malloc(sizeof(CPU_context_s));
 
+	// is anything beyond the for and necessary here? Wouldn't we run into a stack overflow if this fasiled
         if (new_pcb->context != NULL && new_pcb->io_1_traps != NULL && new_pcb->io_2_traps != NULL) {
           initialize_data(new_pcb);
         } else {
