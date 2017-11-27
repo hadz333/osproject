@@ -31,7 +31,7 @@
 
 #define NUM_TYPE_PROCS 4
 #define MAX_IO_PROCS 50
-#define MAX_INTENSIVE_PROCS 50
+#define MAX_INTENSIVE_PROCS 25
 
 int count_io_procs = 0;
 int count_comp_procs = 0;
@@ -239,8 +239,12 @@ int cpu() {
 		trap_io(i);
 	    }
 	    break;
-	case INTENSIVE:
+	case INTENSIVE: 
 	    break;
+	case MUTEX:
+	    // need to check if current running proc needs to run lock, trylock, unlock 
+	case PROD:
+	case CONS:
 	default:
 	    break;
 	}
@@ -686,6 +690,8 @@ void generate_pcbs() {
     num_to_make = rand() % NUM_PROCESSES;
 
     for (i = 0; i < num_to_make; i++) {
+	Lock_p lock_1;
+	Lock_p lock_2;
         new_pcb = make_pcb();
         /*
          * Randomly decide if one process will be not terminate or not.
@@ -718,17 +724,16 @@ void generate_pcbs() {
 	case 2: // mutex case
 	    //lock_1 = lock_constructor();
 	    //lock_2 = lock_constructor();
+	    //new_pcb = make_pcb();
+	    //proc_to_lock_map_p new_map_1 = proc_map_constructor(lock_1, lock_2, new_pcb);
+	    //new_pcb->proc_type = MUTEX;
+	    //q_enqueue(new_queue, new_pcb);
 
 	    //new_pcb = make_pcb();
-	    //new_pcb->lock_1 = lock_1;
-	    //new_pcb->lock_2 = lock_2;
-	    //new_pcb->proc_type = MUTEX_PROC;
-
-	    //new_pcb = make_pcb();
-	    //new_pcb->lock_1 = lock_1;
-	    //new_pcb->lock_2 = lock_2;
-	    //new_pcb->proc_type = MUTEX_PROC;
-	    //num_to_make--;
+	    //proc_to_lock_map_p new_map_2 = proc_map_constructor(lock_1, lock_2, new_pcb);
+	    //new_pcb->proc_type = MUTEX;
+	    //q_enqueue(new_queue, new_pcb);
+	    break;
 
 	    // if we want deadlock
 	    // make_pcb_mutex(new_pcb, lock_2, lock_1);
