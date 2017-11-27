@@ -39,6 +39,17 @@ void proc_map_list_add(proc_map_list_p proc_map, proc_to_lock_map_p map_lock) {
     }
 }
 
+proc_to_lock_map_p search_list_for_pcb(proc_map_list_p list, PCB_p proc) {
+    proc_node_p node = list->head;
+    while (node != NULL) {
+	if (node->map->proc == proc) {
+	    return node->map;
+	}
+	node = node->next;
+    }
+    return NULL; // this shouldn't really happen
+}
+
 void proc_map_list_destructor(proc_map_list_p proc_map) {
     proc_node_p curr = proc_map->head;
     while (curr != NULL) {

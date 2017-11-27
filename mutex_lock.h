@@ -8,6 +8,9 @@ typedef struct Lock {
 
 typedef Lock_s * Lock_p;
 
+
+
+
 typedef struct proc_to_lock_map {
     Lock_p lock_1;
     Lock_p lock_2;
@@ -37,8 +40,9 @@ void proc_map_list_destructor(proc_map_list_p proc_map);
 void proc_map_destructor(proc_map_list_p proc_map);
 Lock_p lock_constructor();
 proc_to_lock_map_p proc_map_constructor(Lock_p lock_1, Lock_p lock_2, PCB_p proc);
-int acquire_lock(Lock_p lock, PCB_p proc);
+int lock(Lock_p lock, PCB_p proc);
 int release_lock(Lock_p lock);
 int try_lock(Lock_p lock, PCB_p proc);
 void lock_destructor(Lock_p lock);
+proc_to_lock_map_p search_list_for_pcb(proc_map_list_p list, PCB_p proc);
 #endif

@@ -40,6 +40,24 @@ void initialize_data(/* in-out */ PCB_p pcb) {
   pcb->context->r5 = 0;
   pcb->context->r6 = 0;
   pcb->context->r7 = 0;
+
+  pcb->lock_1[0] = 5;
+  pcb->lock_1[1] = 10;
+  pcb->lock_1[2] = 200;
+  pcb->lock_1[3] = 500;
+  pcb->unlock_1[0] = 8;
+  pcb->unlock_1[1] = 103;
+  pcb->unlock_1[2] = 203;
+  pcb->unlock_1[3] = 503;
+
+  pcb->lock_2[0] = 6;
+  pcb->lock_2[1] = 11;
+  pcb->lock_2[2] = 201;
+  pcb->lock_2[3] = 501;
+  pcb->unlock_2[0] = 7;
+  pcb->unlock_2[1] = 102;
+  pcb->unlock_2[2] = 202;
+  pcb->unlock_2[3] = 502;
 }
 
 /*

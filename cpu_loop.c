@@ -36,6 +36,8 @@
 int count_io_procs = 0;
 int count_comp_procs = 0;
 
+proc_map_list_p list_of_locks;
+
 
 /* Mutexes */
 pthread_mutex_t timer_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -177,6 +179,8 @@ unsigned int sys_stack;
 
 /* Main loop. */
 int main(void) {
+    list_of_locks = proc_map_list_constructor();
+
     program_executing = 1;
     
     initialize_system();
@@ -242,7 +246,42 @@ int cpu() {
 	case INTENSIVE: 
 	    break;
 	case MUTEX:
-	    // need to check if current running proc needs to run lock, trylock, unlock 
+	    if (contains(running_process->lock_1, cpu_pc, 4)) {
+		proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+		int attempt = lock(map->lock_1, running_process);
+		if (attempt == 0) {
+		    printf("LOCK 1\n");
+		} else {
+		    printf("sleeping lock 1\n");
+		    lock_trap(map->lock_1);
+		}
+	    }
+
+	    if (contains(running_process->lock_2, cpu_pc, 4)) {
+		proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+		int attempt = lock(map->lock_2, running_process);
+		if (attempt == 0) {
+		    printf("LOCK 2\n");
+		} else {
+		    printf("sleeping lock 2\n");
+		    lock_trap(map->lock_2);
+		}
+	    }
+
+	    if (contains(running_process->unlock_1, cpu_pc, 4)) {
+		proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+		release_lock(map->lock_1);
+		printf("UNLOCK 1\n");
+
+	    }
+
+
+	    if (contains(running_process->unlock_2, cpu_pc, 4)) {
+		proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+		release_lock(map->lock_2);
+		printf("UNLOCK 2\n");
+	    }
+	    break;
 	case PROD:
 	case CONS:
 	default:
@@ -265,6 +304,14 @@ int cpu() {
     }
 
     return 1;
+}
+
+int contains(unsigned int arr[], unsigned int num, unsigned int arr_size) {
+    int i;
+    for (i = 0; i < arr_size; i++) {
+	if (arr[i] == num) return 1;
+    }
+    return 0;
 }
 
 /*
@@ -722,17 +769,19 @@ void generate_pcbs() {
 	    }
 	    break;
 	case 2: // mutex case
-	    //lock_1 = lock_constructor();
-	    //lock_2 = lock_constructor();
-	    //new_pcb = make_pcb();
-	    //proc_to_lock_map_p new_map_1 = proc_map_constructor(lock_1, lock_2, new_pcb);
-	    //new_pcb->proc_type = MUTEX;
-	    //q_enqueue(new_queue, new_pcb);
+	    lock_1 = lock_constructor();
+	    lock_2 = lock_constructor();
+	    new_pcb = make_pcb();
+	    proc_to_lock_map_p new_map_1 = proc_map_constructor(lock_1, lock_2, new_pcb);
+	    proc_map_list_add(list_of_locks, new_map_1);
+	    new_pcb->proc_type = MUTEX;
+	    q_enqueue(new_queue, new_pcb);
 
-	    //new_pcb = make_pcb();
-	    //proc_to_lock_map_p new_map_2 = proc_map_constructor(lock_1, lock_2, new_pcb);
-	    //new_pcb->proc_type = MUTEX;
-	    //q_enqueue(new_queue, new_pcb);
+	    new_pcb = make_pcb();
+	    proc_to_lock_map_p new_map_2 = proc_map_constructor(lock_1, lock_2, new_pcb);
+	    proc_map_list_add(list_of_locks, new_map_2);
+	    new_pcb->proc_type = MUTEX;
+	    q_enqueue(new_queue, new_pcb);
 	    break;
 
 	    // if we want deadlock
@@ -833,4 +882,11 @@ void deallocate_system() {
 
     if (running_process != NULL)
         PCB_destroy(running_process);
+}
+
+void lock_trap(Lock_p lock) {
+    printf("DROPPING IN HERE\n");
+    running_process->state = STATE_BLOCKED;
+    running_process = NULL;
+    scheduler(TRAP_IO);
 }

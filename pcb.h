@@ -83,16 +83,23 @@ typedef struct pcb {
 
     enum proc_type proc_type;
 
-    unsigned int lock[NUM_LOCKS];
+    unsigned int lock_1[4];
+    unsigned int lock_2[4];
+
+
+    // unlock always needs to follow lock or trylock...
+    // does that mean we need an unlock for each lock and trylock?
+    unsigned int unlock_2[4];
+    unsigned int unlock_1[4];
 
     // what does this case look like?
     // spinlock, but pc wouldnt move if this were the case
     // just a goto statement depending on whether or not the proc can acquire the lock
-    unsigned int trylock[NUM_LOCKS]; 
+    //unsigned int trylock_1[3] = { 20, 150, 250 };
+    //unsigned int trylock_2[3] = { 21, 151, 251 };
 
-    // unlock always needs to follow lock or trylock...
-    // does that mean we need an unlock for each lock and trylock?
-    unsigned int unlock[NUM_LOCKS];
+    //unsigned int try_unlock_2[3] = { 22, 152, 252 };
+    //unsigned int try_unlock_2[3] = { 23, 153, 253 };
 
     // other items to be added as needed.
 
