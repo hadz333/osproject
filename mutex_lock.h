@@ -1,13 +1,14 @@
+#include "pcb.h"
+#include "fifo_queue.h"
+
 #ifndef MUTEX_LOCK_H
 #define MUTEX_LOCK_H
-#include "fifo_queue.h"
 typedef struct Lock {
     PCB_p current_proc;
     FIFOq_p waiting_procs;
 } Lock_s;
 
 typedef Lock_s * Lock_p;
-
 
 typedef struct proc_to_lock_map {
     Lock_p lock_1;
@@ -19,7 +20,7 @@ typedef proc_to_lock_map_s * proc_to_lock_map_p;
 
 typedef struct proc_node {
     proc_to_lock_map_p map;
-    struct proc_node_s * next;
+    struct proc_node * next;
 } proc_node_s;
 
 typedef proc_node_s * proc_node_p;
