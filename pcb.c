@@ -46,41 +46,40 @@ void initialize_data(/* in-out */ PCB_p pcb) {
   pcb->lock_1[2] = 200;
   pcb->lock_1[3] = 500;
 
-  pcb->unlock_1[0] = 8;
-  pcb->unlock_1[1] = 103;
-  pcb->unlock_1[2] = 203;
-  pcb->unlock_1[3] = 503;
-
   pcb->lock_2[0] = 6;
   pcb->lock_2[1] = 11;
   pcb->lock_2[2] = 201;
   pcb->lock_2[3] = 501;
 
   pcb->unlock_2[0] = 7;
-  pcb->unlock_2[1] = 102;
+  pcb->unlock_2[1] = 12;
   pcb->unlock_2[2] = 202;
   pcb->unlock_2[3] = 502;
-//
-//  pcb->trylock_1[0] = 9;
-//  pcb->trylock_1[1] = 12;
-//  pcb->trylock_1[2] = 202;
-//  pcb->trylock_1[3] = 504;
-//
-//  pcb->unlock_1[0] = 10;
-//  pcb->unlock_1[1] = 105;
-//  pcb->unlock_1[2] = 204;
-//  pcb->unlock_1[3] = 507;
-//
-//  pcb->trylock_2[0] = 8;
-//  pcb->trylock_2[1] = 13;
-//  pcb->trylock_2[2] = 204;
-//  pcb->trylock_2[3] = 509;
-//
-//  pcb->unlock_2[0] = 9;
-//  pcb->unlock_2[1] = 106;
-//  pcb->unlock_2[2] = 204;
-//  pcb->unlock_2[3] = 510;
 
+  pcb->unlock_1[0] = 8;
+  pcb->unlock_1[1] = 13;
+  pcb->unlock_1[2] = 203;
+  pcb->unlock_1[3] = 503;
+
+  pcb->trylock_1[0] = 14;
+  pcb->trylock_1[1] = 50;
+  pcb->trylock_1[2] = 250;
+  pcb->trylock_1[3] = 275;
+
+  pcb->trylock_2[0] = 15;
+  pcb->trylock_2[1] = 51;
+  pcb->trylock_2[2] = 251;
+  pcb->trylock_2[3] = 276;
+
+  pcb->try_unlock_2[0] = 16;
+  pcb->try_unlock_2[1] = 52;
+  pcb->try_unlock_2[2] = 252;
+  pcb->try_unlock_2[3] = 277;
+
+  pcb->try_unlock_1[0] = 17;
+  pcb->try_unlock_1[1] = 54;
+  pcb->try_unlock_1[2] = 253;
+  pcb->try_unlock_1[3] = 278;
 }
 
 /*
