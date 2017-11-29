@@ -96,11 +96,11 @@ typedef struct pcb {
     // spinlock, but pc wouldnt move if this were the case
     // just a goto statement depending on whether or not the proc can acquire the lock
 
-    //unsigned int trylock_1[4];
-    //unsigned int trylock_2[4];
+    unsigned int trylock_1[4];
+    unsigned int trylock_2[4];
 
-    //unsigned int try_unlock_1[4];
-    //unsigned int try_unlock_2[4];
+    unsigned int try_unlock_1[4];
+    unsigned int try_unlock_2[4];
 
     // other items to be added as needed.
 
