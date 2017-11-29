@@ -250,7 +250,7 @@ int cpu() {
 	case INTENSIVE: 
 	    break;
 	case MUTEX:
-	    if (contains(&running_process->lock_1, cpu_pc, 4, running_process) == 1) {
+	    if (contains(running_process->lock_1, cpu_pc, 4, running_process) == 1) {
 		proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
 		int attempt = lock(map->lock_1, running_process);
 		if (attempt == 0) {
