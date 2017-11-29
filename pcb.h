@@ -13,6 +13,9 @@
 #define NUM_IO_TRAPS 4 // number of pc triggers in io trap arrays
 
 
+#define NUM_LOCKS 4
+#define NUM_WAIT 4
+
 
 /* The CPU state, values named as in the LC-3 processor. */
 typedef struct cpu_context {
@@ -31,6 +34,13 @@ typedef struct cpu_context {
 
 typedef CPU_context_s * CPU_context_p; // _p means that this is a pointer to a structure
 
+enum proc_type {
+    IO,
+    INTENSIVE,
+    MUTEX,
+    PROD,
+    CONS,
+};
 /* enum for various process states. */
 enum state_type {
     /* New process. */
@@ -70,7 +80,33 @@ typedef struct pcb {
     unsigned int io_1_traps[NUM_IO_TRAPS];
     unsigned int io_2_traps[NUM_IO_TRAPS];
 
+    unsigned int prod_cons_id; 
+
+    enum proc_type proc_type;
+
+    unsigned int lock_1[4];
+    unsigned int lock_2[4];
+
+
+    // unlock always needs to follow lock or trylock...
+    // does that mean we need an unlock for each lock and trylock?
+    unsigned int unlock_2[4];
+    unsigned int unlock_1[4];
+
+    // what does this case look like?
+    // spinlock, but pc wouldnt move if this were the case
+    // just a goto statement depending on whether or not the proc can acquire the lock
+
+    //unsigned int trylock_1[4];
+    //unsigned int trylock_2[4];
+
+    //unsigned int try_unlock_1[4];
+    //unsigned int try_unlock_2[4];
+
     // other items to be added as needed.
+
+   unsigned int wait[NUM_WAIT];
+    unsigned int signal[NUM_WAIT];
 
 } PCB_s;
 
