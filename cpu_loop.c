@@ -29,13 +29,29 @@
 #define IO_DELAY_MOD 100
 #define TIMER_SLEEP 1000000
 
+#define NUM_TYPE_PROCS 4
+#define MAX_IO_PROCS 50
+#define MAX_INTENSIVE_PROCS 25
+#define MAX_PROD_CONS_PROCS 20
+
+int count_io_procs = 0;
+int count_comp_procs = 0;
+int count_prod_cons_procs = 0;
+int prod_cons_globals[10];
+int curr_prod_cons_id = 0;
+
+proc_map_list_p list_of_locks;
+
 
 /* Mutexes */
 pthread_mutex_t timer_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t io_lock = PTHREAD_MUTEX_INITIALIZER;
+Lock_p prod_cons_lock = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_cond_t timer_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cpu_cond = PTHREAD_COND_INITIALIZER;
+
+c_Variable_p empty, fill; // used for prod/cons problem
 
 
 // used when an io device needs to wait on either another io device or the timer itself
@@ -49,9 +65,11 @@ pthread_cond_t io_cond_2 = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t timer_init_lock = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t io_init_lock = PTHREAD_MUTEX_INITIALIZER;
 
+
 int program_executing;
 int initialized_cond = 0;
 int initialized_io = 0;
+int flip = 0; // used for prod/cons problem
 
 pthread_t timer_thread;
 pthread_t io_thread_1;
@@ -168,15 +186,20 @@ unsigned int cpu_pc;
 /* PC at the top of the system stack. */
 unsigned int sys_stack;
 
+int contains(unsigned int arr[], unsigned int num, int size, PCB_p proc);
+void unlock_and_release_waiting_procs(Lock_p lock);
+void lock_trap(Lock_p lock);
+
 /* Main loop. */
 int main(void) {
+    list_of_locks = proc_map_list_constructor();
+
     program_executing = 1;
     
     initialize_system();
 
     while (program_executing) { // TODO: add trylock for io interrupt lock
         if (pthread_mutex_trylock(&timer_lock) == 0) {//pthread_mutex_trylock(&io_lock) == 0) {
-	    printf("should be going through here frequently");
             program_executing = cpu();
             current_iteration++;
             if (current_iteration > TEST_ITERATIONS)
@@ -185,10 +208,11 @@ int main(void) {
         }
     }
     pthread_join(timer_thread, NULL);
-    pthread_join(io_thread_1, NULL);
-    pthread_join(io_thread_2, NULL);
+    pthread_cond_signal(&io_cond_1);
+    pthread_cond_signal(&io_cond_2);
+    //pthread_join(io_thread_1, NULL);
+    //pthread_join(io_thread_2, NULL);
     deallocate_system();
-    printf("DONE HERE");
     return program_executing;
 }
 
@@ -217,38 +241,129 @@ int cpu() {
         }
     }
 
-    
-
-    /*
-     * IO INTERRUPT: Check for IO completion interrupt.
-     * Does not reset is_interrupt, because io int will not change
-     * the running process, just bump the IO's queue to the running queue.
-     */
-    //for (i = 0; i < NUM_IO_DEVICES; i++) {
-    //    if (io_check(i)) {
-    //        printf("EVENT: IO Interrupt - ");
-    //        io_interrupt(i);
-    //        print_on_event();
-    //    }
-    //}
-
+    // consider different kinds of procs!
 
     /* IO TRAP: Check for IO trap */
     if (running_process != NULL) {
-        i = test_io_trap();
-        if (i) {
-            /* Test IO trap returns 1 larger than the IO device to use. */
-            i--;
-	    //lock_thread_by_priority(TRAP_IO);
-            printf("EVENT: IO Trap Called for PID %u on IO Device %u\n", running_process->pid, i);
-            trap_io(i);
-        }
+	switch (running_process->proc_type) {
+	case IO:
+	    i = test_io_trap();
+	    if (i) {
+	    	/* Test IO trap returns 1 larger than the IO device to use. */
+	    	i--;
+	    	//lock_thread_by_priority(TRAP_IO);
+	    	printf("EVENT: IO Trap Called for PID %u on IO Device %u\n", running_process->pid, i);
+	    	trap_io(i);
+	    }
+	    break;
+	case INTENSIVE: 
+	    break;
+	case MUTEX:
+	    if (contains(&running_process->lock_1, cpu_pc, 4, running_process) == 1) {
+		proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+		int attempt = lock(map->lock_1, running_process);
+		if (attempt == 0) {
+		    printf("LOCK 1\n");
+		} else {
+		    printf("sleeping lock 1\n");
+		    lock_trap(map->lock_1);
+		}
+	    } else  if (contains(running_process->lock_2, cpu_pc, 4, running_process) == 1) {
+	    	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+	    	int attempt = lock(map->lock_2, running_process);
+	    	if (attempt == 0) {
+	    	    printf("LOCK 2\n");
+	    	} else {
+	    	    printf("sleeping lock 2\n");
+	    	    lock_trap(map->lock_2);
+	    	}
+	    } else if (contains(running_process->unlock_1, cpu_pc, 4, running_process) == 1) {
+	    	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+	    	if (map->proc != NULL && map->proc == running_process) {
+	    	    release_lock(map->lock_1);
+	    	    unlock_and_release_waiting_procs(map->lock_1);
+	    	    printf("UNLOCK 1\n");
+	    	} else {
+	    	    printf("this shouldn't happen 1\n");
+	    	}
+	    } else if (contains(running_process->unlock_2, cpu_pc, 4, running_process) == 1) {
+	    	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+	    	if (map->proc != NULL && map->proc == running_process) {
+	    	    release_lock(map->lock_2);
+	    	    unlock_and_release_waiting_procs(map->lock_2);
+	    	    printf("UNLOCK 2\n");
+	    	} else {
+	    	    printf("this shouldn't happen 2\n");
+	    	}
+	    }
+
+	    //if (contains(running_process->trylock_1, cpu_pc, 4)) {
+	    //	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+	    //	int attempt = lock(map->lock_2, running_process);
+	    //	if (attempt == 0) {
+	    //	    printf("LOCK 2\n");
+	    //	}
+	    //}
+
+
+	    //if (contains(running_process->trylock_2, cpu_pc, 4)) {
+	    //	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+	    //	int attempt = lock(map->lock_2, running_process);
+	    //	if (attempt == 0) {
+	    //	    printf("LOCK 2\n");
+	    //	}
+	    //}
+
+	    //if (contains(running_process->try_unlock_1, cpu_pc, 4)) {
+	    //	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+	    //	if (map->proc == running_process) {
+	    //	    release_lock(map->lock_1);
+	    //	    unlock_and_release_waiting_procs(map->lock_1);
+	    //	    printf("TRY UNLOCK 1\n");
+	    //	} else {
+	    //	    printf("this shouldn't happen 1\n");
+	    //	}
+
+	    //}
+
+
+	    //if (contains(running_process->try_unlock_2, cpu_pc, 4)) {
+	    //	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+	    //	if (map->proc == running_process) {
+	    //	    release_lock(map->lock_2);
+	    //	    unlock_and_release_waiting_procs(map->lock_2);
+	    //	    printf("TRY UNLOCK 2\n");
+	    //	} else {
+	    //	    printf("this shouldn't happen 2\n");
+	    //	}
+	    //}
+	    break;
+	case PROD:
+            lock(running_process, &prod_cons_lock); 
+            while (flip == 1) 
+                cond_variable_wait(&empty, &prod_cons_lock); // wait for the read
+            prod_cons_globals[running_process->prod_cons_id] += 1;
+            flip = 1;
+            cond_variable_signal(&fill); // signal that it was incremented
+            printf("Producer X incremented variable XY: %i \n", prod_cons_globals[running_process->prod_cons_id]);
+            release_lock(&prod_cons_lock);
+	case CONS:
+            lock(running_process, &prod_cons_lock);
+            while (flip == 0) 
+                cond_variable_wait(&fill, &prod_cons_lock); // wait for the increment
+            printf("Consumer Y read variable XY: %i \n", prod_cons_globals[running_process->prod_cons_id]);
+            flip = 0;
+            cond_variable_signal(&empty); // signal that it was read 
+            release_lock(&prod_cons_lock);
+	default:
+	    break;
+	}
     }
 
     /* TERMINATE TRAP: If the process has been running too long, zombify. */
     if (running_process != NULL && running_process->terminate != 0 && running_process->term_count >= running_process->terminate) {
-        //printf("EVENT: Terminate Trap Called for PID %u\n", running_process->pid);
-        //print_on_event();
+        printf("EVENT: Terminate Trap Called for PID %u\n", running_process->pid);
+        print_on_event();
         trap_terminate();
     }
 
@@ -260,6 +375,17 @@ int cpu() {
     }
 
     return 1;
+}
+
+int contains(unsigned int arr[], unsigned int num, int arr_size, PCB_p proc) {
+    int i;
+    for (i = 0; i < 4; i++) {
+	//printf("index %d is %d\n", i, arr[i]);
+	if (arr[i] == num) {
+	    return 1;
+	}
+    }
+    return 0;
 }
 
 /*
@@ -305,10 +431,8 @@ void *io_interrupt(unsigned int * io_device) {
             nanosleep(NULL, &s);
         }
 
-	printf("wake up\n");
 	// mutex global thread lock
         pthread_mutex_lock(&timer_lock);
-	printf("put on a little makeup\n");
 
 	// lock
 	// raise flag
@@ -385,8 +509,6 @@ void *timer() {
         pthread_mutex_unlock(&timer_lock);
 
         pthread_cond_broadcast(&timer_cond); // broadcast to io dev
-        //pthread_cond_broadcast(&io_cond); // broadcast to io dev
-        //pthread_cond_broadcast(&cpu_cond); // boardcast to cpu
 
         if (program_executing == 0) break;
         
@@ -415,21 +537,19 @@ void trap_io(unsigned int io_device) {
     running_process->state = STATE_BLOCKED;
     q_enqueue(io_queues[io_device], running_process);
     io_queue_timers[io_device] = quantum_times[running_process->priority] + IO_DELAY_BASE + rand() % IO_DELAY_MOD;
+    running_process->context->pc = cpu_pc;
     running_process = NULL;
     print_on_event();
 
-    printf("making it here\n");
     // after this section check if another thread should take over
-    lock_thread_by_priority(TRAP_IO);
+    //lock_thread_by_priority(TRAP_IO);
     printf("%d the io device # \n", io_device);
 
     scheduler(TRAP_IO);
 
     if (io_device == 0) {
-	printf("ATTACK IO 1!\n");
         pthread_cond_signal(&io_cond_1);
     } else {
-	printf("ATTACK IO 2!\n");
         pthread_cond_signal(&io_cond_2);
     }
 }
@@ -540,8 +660,8 @@ void scheduler(enum interrupt_type type) {
             zombie_cleanup = q_dequeue(zombie_queue);
             PCB_destroy(zombie_cleanup);
         }
-        //printf("EVENT: Zombie queue emptied\n");
-        //print_on_event();
+        printf("EVENT: Zombie queue emptied\n");
+        print_on_event();
     }
 }
 
@@ -565,9 +685,9 @@ void lock_thread_by_priority(enum interrupt_type type) {
 	pthread_mutex_unlock(&timer_init_lock);
 
 	// need to order io_int -> io_trap
-	//acquire io_lock
+	// acquire io_lock
 	// checkcond... sleep if need be
-	//release io_lock
+	// release io_lock
 
 	// this block forces the trap routine to defer to the io threads
 	if (type == TRAP_IO) {
@@ -692,18 +812,88 @@ void generate_pcbs() {
     num_to_make = rand() % NUM_PROCESSES;
 
     for (i = 0; i < num_to_make; i++) {
+	Lock_p lock_1;
+	Lock_p lock_2;
         new_pcb = make_pcb();
         /*
          * Randomly decide if one process will be not terminate or not.
          */
-        lottery = rand() % 1000;
-        if (lottery <= 5) {
-            new_pcb->terminate = 0;
-        }
+	lottery = rand() % 1000;
+	int type = rand() % NUM_TYPE_PROCS;
+	switch (type) {
+	case 0: //IO CASE
+	    if (count_io_procs < MAX_IO_PROCS) {
+	    	new_pcb = make_pcb();
+	    	new_pcb->proc_type = IO;
+	    	count_io_procs++;
+	    	//num_to_make--;
+	    	if (lottery <= 5) {
+	    	    new_pcb->terminate = 0;
+	    	}
+	    	q_enqueue(new_queue, new_pcb);
+	    }
+	    break;
+	case 1: // computations case
+	    if (count_comp_procs < MAX_INTENSIVE_PROCS) {
+	    	new_pcb = make_pcb();
+	    	new_pcb->proc_type = INTENSIVE;
+	    	count_comp_procs++;
+	    	if (lottery <= 5) {
+	    	    new_pcb->terminate = 0;
+	    	}
+	    	q_enqueue(new_queue, new_pcb);
+	    }
+	    break;
+	case 2: // mutex case
+	    lock_1 = lock_constructor();
+	    lock_2 = lock_constructor();
 
-        if (new_pcb != NULL) {
-            q_enqueue(new_queue, new_pcb);
-        }
+	    new_pcb = make_pcb();
+	    if (new_pcb == NULL) break;
+	    new_pcb->terminate = 0;
+	    proc_to_lock_map_p new_map_1 = proc_map_constructor(lock_1, lock_2, new_pcb);
+	    proc_map_list_add(list_of_locks, new_map_1);
+	    new_pcb->proc_type = MUTEX;
+	    q_enqueue(new_queue, new_pcb);
+
+	    new_pcb = make_pcb();
+	    if (new_pcb == NULL) break;
+	    new_pcb->terminate = 0;
+	    proc_to_lock_map_p new_map_2 = proc_map_constructor(lock_1, lock_2, new_pcb);
+	    proc_map_list_add(list_of_locks, new_map_2);
+	    new_pcb->proc_type = MUTEX;
+	    q_enqueue(new_queue, new_pcb);
+	    break;
+
+	    // if we want deadlock
+	    // make_pcb_mutex(new_pcb, lock_2, lock_1);
+	case 3: // prod/consumer proc
+            
+            if (count_prod_cons_procs < MAX_INTENSIVE_PROCS) { // SECTION ADDED BY DINO - REMOVE LATER. USED TO FIND LINES TO ADD TO OFFICIAL PROJ.
+                if (count_prod_cons_procs % 2 == 0) {
+                    // its a prod 
+                    new_pcb = make_pcb();
+                    new_pcb->proc_type = PROD;
+                    new_pcb->prod_cons_id = count_prod_cons_procs;
+                    count_prod_cons_procs++;
+                    q_enqueue(new_queue, new_pcb);
+                } else {
+                    // its a cons
+                    new_pcb = make_pcb();
+                    new_pcb->proc_type = CONS;
+                    new_pcb->prod_cons_id = count_prod_cons_procs - 1;
+                    count_prod_cons_procs++;
+                    q_enqueue(new_queue, new_pcb);
+                }
+                //break;
+            }
+	    break;
+	default:
+	    break;
+	}
+        //if (new_pcb != NULL) {
+        //    q_enqueue(new_queue, new_pcb);
+        //}
     }
 }
 
@@ -793,4 +983,21 @@ void deallocate_system() {
 
     if (running_process != NULL)
         PCB_destroy(running_process);
+}
+
+void lock_trap(Lock_p lock) {
+    printf("DROPPING IN HERE\n");
+    running_process->context->pc = cpu_pc - 1;
+    running_process->state = STATE_BLOCKED;
+    running_process = NULL;
+    scheduler(TRAP_IO);
+}
+
+void unlock_and_release_waiting_procs(Lock_p lock) {
+    FIFOq_p q = lock->waiting_procs;
+    while (q->size > 0) {
+	PCB_p proc = q_dequeue(q);
+	proc->state = STATE_READY;
+	pq_enqueue(ready_queue, proc);
+    }
 }
