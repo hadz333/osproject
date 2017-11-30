@@ -80,7 +80,7 @@ typedef struct pcb {
     unsigned int io_1_traps[NUM_IO_TRAPS];
     unsigned int io_2_traps[NUM_IO_TRAPS];
 
-    unsigned int prod_cons_id; 
+    unsigned int prod_cons_id;
 
     enum proc_type proc_type;
 
@@ -97,11 +97,15 @@ typedef struct pcb {
     // spinlock, but pc wouldnt move if this were the case
     // just a goto statement depending on whether or not the proc can acquire the lock
 
-    //unsigned int trylock_1[4];
-    //unsigned int trylock_2[4];
+    unsigned int trylock_1[4];
+    unsigned int trylock_2[4];
 
-    //unsigned int try_unlock_1[4];
-    //unsigned int try_unlock_2[4];
+    unsigned int try_unlock_1[4];
+    unsigned int try_unlock_2[4];
+    
+    // prod/cons 
+    
+    unsigned int prod_cons_lock[4];
 
     // other items to be added as needed.
 

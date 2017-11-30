@@ -27,17 +27,18 @@
 #define NUM_IO_DEVICES 2
 #define IO_DELAY_BASE 10
 #define IO_DELAY_MOD 100
-#define TIMER_SLEEP 1000000
+#define TIMER_SLEEP 1000000000
 
 #define NUM_TYPE_PROCS 4
 #define MAX_IO_PROCS 50
 #define MAX_INTENSIVE_PROCS 25
-#define MAX_PROD_CONS_PROCS 20
+#define MAX_PROD_CONS_PROC_PAIRS 10
 
 int count_io_procs = 0;
 int count_comp_procs = 0;
 int count_prod_cons_procs = 0;
-int prod_cons_globals[10];
+int prod_cons_globals[10][2]; // second dimension index 0 is counter incremented, index 1 is flip
+c_Variable_p prod_cons_cond_vars[10][2]; // second dimension index 0 is fill, index 1 is empty
 int curr_prod_cons_id = 0;
 
 proc_map_list_p list_of_locks;
@@ -46,12 +47,9 @@ proc_map_list_p list_of_locks;
 /* Mutexes */
 pthread_mutex_t timer_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t io_lock = PTHREAD_MUTEX_INITIALIZER;
-Lock_p prod_cons_lock = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_cond_t timer_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cpu_cond = PTHREAD_COND_INITIALIZER;
-
-c_Variable_p empty, fill; // used for prod/cons problem
 
 
 // used when an io device needs to wait on either another io device or the timer itself
@@ -64,7 +62,7 @@ pthread_cond_t io_cond_2 = PTHREAD_COND_INITIALIZER;
 
 pthread_mutex_t timer_init_lock = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t io_init_lock = PTHREAD_MUTEX_INITIALIZER;
-
+Lock_p prod_cons_locks[10];
 
 int program_executing;
 int initialized_cond = 0;
@@ -82,6 +80,7 @@ enum interrupt_type {
     INT_IO,
     INT_TERMINATE,
     TRAP_IO,
+    TRAP_PROD_CONS,
     INTERRUPT_COUNT,
 };
 
@@ -186,7 +185,7 @@ unsigned int cpu_pc;
 /* PC at the top of the system stack. */
 unsigned int sys_stack;
 
-int contains(unsigned int arr[], unsigned int num, int size, PCB_p proc);
+int contains(unsigned int arr[], unsigned int num, int size);
 void unlock_and_release_waiting_procs(Lock_p lock);
 void lock_trap(Lock_p lock);
 
@@ -200,6 +199,9 @@ int main(void) {
 
     while (program_executing) { // TODO: add trylock for io interrupt lock
         if (pthread_mutex_trylock(&timer_lock) == 0) {//pthread_mutex_trylock(&io_lock) == 0) {
+	    if (running_process != NULL && running_process->proc_type == MUTEX)
+		//if (cpu_pc > 10)
+		    printf("thank you god %u\n", cpu_pc);
             program_executing = cpu();
             current_iteration++;
             if (current_iteration > TEST_ITERATIONS)
@@ -210,8 +212,8 @@ int main(void) {
     pthread_join(timer_thread, NULL);
     pthread_cond_signal(&io_cond_1);
     pthread_cond_signal(&io_cond_2);
-    //pthread_join(io_thread_1, NULL);
-    //pthread_join(io_thread_2, NULL);
+    pthread_join(io_thread_1, NULL);
+    pthread_join(io_thread_2, NULL);
     deallocate_system();
     return program_executing;
 }
@@ -259,102 +261,114 @@ int cpu() {
 	case INTENSIVE: 
 	    break;
 	case MUTEX:
-	    if (contains(&running_process->lock_1, cpu_pc, 4, running_process) == 1) {
+	    if (contains(running_process->lock_1, cpu_pc, 4) == 1) {
 		proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
 		int attempt = lock(map->lock_1, running_process);
 		if (attempt == 0) {
-		    printf("LOCK 1\n");
+	    	    printf("LOCK 1 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
 		} else {
 		    printf("sleeping lock 1\n");
 		    lock_trap(map->lock_1);
 		}
-	    } else  if (contains(running_process->lock_2, cpu_pc, 4, running_process) == 1) {
+	    } else if (contains(running_process->lock_2, cpu_pc, 4) == 1) {
 	    	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
 	    	int attempt = lock(map->lock_2, running_process);
 	    	if (attempt == 0) {
-	    	    printf("LOCK 2\n");
+	    	    printf("LOCK 2 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
 	    	} else {
 	    	    printf("sleeping lock 2\n");
 	    	    lock_trap(map->lock_2);
 	    	}
-	    } else if (contains(running_process->unlock_1, cpu_pc, 4, running_process) == 1) {
+	    } else if (contains(running_process->unlock_1, cpu_pc, 4) == 1) {
 	    	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
 	    	if (map->proc != NULL && map->proc == running_process) {
 	    	    release_lock(map->lock_1);
 	    	    unlock_and_release_waiting_procs(map->lock_1);
-	    	    printf("UNLOCK 1\n");
+	    	    printf("UNLOCK 1 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
 	    	} else {
 	    	    printf("this shouldn't happen 1\n");
 	    	}
-	    } else if (contains(running_process->unlock_2, cpu_pc, 4, running_process) == 1) {
+	    } else if (contains(running_process->unlock_2, cpu_pc, 4) == 1) {
 	    	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
 	    	if (map->proc != NULL && map->proc == running_process) {
 	    	    release_lock(map->lock_2);
 	    	    unlock_and_release_waiting_procs(map->lock_2);
-	    	    printf("UNLOCK 2\n");
+	    	    printf("UNLOCK 2 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
+	    	} else {
+	    	    printf("this shouldn't happen 2\n");
+	    	}
+	    } else if (contains(running_process->trylock_1, cpu_pc, 4)) {
+	    	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+	    	int attempt = try_lock(map->lock_1, running_process);
+	    	if (attempt == 0) {
+	    	    printf("TRY LOCK 1 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
+	    	} else {
+	    	    printf("FAILED TRY LOCK 1 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
+		}
+	    } else if (contains(running_process->trylock_2, cpu_pc, 4)) {
+	    	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+	    	int attempt = try_lock(map->lock_2, running_process);
+	    	if (attempt == 0) {
+	    	    printf("TRY LOCK 2 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
+	    	} else {
+	    	    printf("FAILED TRY LOCK 2 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
+		}
+	    } else if (contains(running_process->try_unlock_1, cpu_pc, 4)) {
+	    	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+	    	if (map->proc == running_process) {
+	    	    release_lock(map->lock_1);
+	    	    unlock_and_release_waiting_procs(map->lock_1);
+	    	    printf("TRY UNLOCK 1 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
+	    	} else {
+	    	    printf("this shouldn't happen 1\n");
+	    	}
+
+	    } else if (contains(running_process->try_unlock_2, cpu_pc, 4)) {
+	    	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+	    	if (map->proc == running_process) {
+	    	    release_lock(map->lock_2);
+	    	    unlock_and_release_waiting_procs(map->lock_2);
+	    	    printf("TRY UNLOCK 2 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
 	    	} else {
 	    	    printf("this shouldn't happen 2\n");
 	    	}
 	    }
-
-	    //if (contains(running_process->trylock_1, cpu_pc, 4)) {
-	    //	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
-	    //	int attempt = lock(map->lock_2, running_process);
-	    //	if (attempt == 0) {
-	    //	    printf("LOCK 2\n");
-	    //	}
-	    //}
-
-
-	    //if (contains(running_process->trylock_2, cpu_pc, 4)) {
-	    //	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
-	    //	int attempt = lock(map->lock_2, running_process);
-	    //	if (attempt == 0) {
-	    //	    printf("LOCK 2\n");
-	    //	}
-	    //}
-
-	    //if (contains(running_process->try_unlock_1, cpu_pc, 4)) {
-	    //	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
-	    //	if (map->proc == running_process) {
-	    //	    release_lock(map->lock_1);
-	    //	    unlock_and_release_waiting_procs(map->lock_1);
-	    //	    printf("TRY UNLOCK 1\n");
-	    //	} else {
-	    //	    printf("this shouldn't happen 1\n");
-	    //	}
-
-	    //}
-
-
-	    //if (contains(running_process->try_unlock_2, cpu_pc, 4)) {
-	    //	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
-	    //	if (map->proc == running_process) {
-	    //	    release_lock(map->lock_2);
-	    //	    unlock_and_release_waiting_procs(map->lock_2);
-	    //	    printf("TRY UNLOCK 2\n");
-	    //	} else {
-	    //	    printf("this shouldn't happen 2\n");
-	    //	}
-	    //}
 	    break;
 	case PROD:
-            lock(running_process, &prod_cons_lock); 
-            while (flip == 1) 
-                cond_variable_wait(&empty, &prod_cons_lock); // wait for the read
-            prod_cons_globals[running_process->prod_cons_id] += 1;
-            flip = 1;
-            cond_variable_signal(&fill); // signal that it was incremented
-            printf("Producer X incremented variable XY: %i \n", prod_cons_globals[running_process->prod_cons_id]);
-            release_lock(&prod_cons_lock);
+            if (contains(running_process->prod_cons_lock, cpu_pc - 1, 4) == 1) {
+                lock(running_process, prod_cons_locks[running_process->prod_cons_id]); 
+            } else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
+                if (prod_cons_globals[running_process->prod_cons_id][1] == 1) {
+                    cond_variable_wait(prod_cons_cond_vars[running_process->prod_cons_id][1], 
+                            &prod_cons_locks[running_process->prod_cons_id], running_process); // wait for the read
+                    prod_cons_trap();
+                }
+                prod_cons_globals[running_process->prod_cons_id][0] += 1;
+                prod_cons_globals[running_process->prod_cons_id][1] = 1;
+                cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][0], running_process, 
+                        prod_cons_locks, ready_queue); // signal that it was incremented
+                printf("Producer X incremented variable XY: %i \n", prod_cons_globals[running_process->prod_cons_id][0]);
+            } else if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
+                release_lock(&prod_cons_locks[running_process->prod_cons_id]);
+            }
+            break;
 	case CONS:
-            lock(running_process, &prod_cons_lock);
-            while (flip == 0) 
-                cond_variable_wait(&fill, &prod_cons_lock); // wait for the increment
-            printf("Consumer Y read variable XY: %i \n", prod_cons_globals[running_process->prod_cons_id]);
-            flip = 0;
-            cond_variable_signal(&empty); // signal that it was read 
-            release_lock(&prod_cons_lock);
+            if (contains(running_process->prod_cons_lock, cpu_pc - 1, 4) == 1) {
+                lock(running_process, prod_cons_locks[running_process->prod_cons_id]);
+            } else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
+                if (prod_cons_globals[running_process->prod_cons_id][1] == 0) {
+                    cond_variable_wait(prod_cons_cond_vars[running_process->prod_cons_id][0], 
+                            &prod_cons_locks[running_process->prod_cons_id], running_process); // wait for the increment
+                    prod_cons_trap();
+                }
+                printf("Consumer Y read variable XY: %i \n", prod_cons_globals[running_process->prod_cons_id][0]);
+                prod_cons_globals[running_process->prod_cons_id][1] = 0;
+                cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][1], running_process, 
+                        prod_cons_locks, ready_queue); // signal that it was read 
+            } else if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
+                release_lock(&prod_cons_locks[running_process->prod_cons_id]);
+            }
+            break;
 	default:
 	    break;
 	}
@@ -377,7 +391,7 @@ int cpu() {
     return 1;
 }
 
-int contains(unsigned int arr[], unsigned int num, int arr_size, PCB_p proc) {
+int contains(unsigned int arr[], unsigned int num, int arr_size) {
     int i;
     for (i = 0; i < 4; i++) {
 	//printf("index %d is %d\n", i, arr[i]);
@@ -483,7 +497,7 @@ void *io_interrupt(unsigned int * io_device) {
 void *timer() {
     for (;;){
         struct timespec timersleep;
-        timersleep.tv_nsec = 10000000;
+        timersleep.tv_nsec = TIMER_SLEEP;
         nanosleep(0, &timersleep);
 
         pthread_mutex_lock(&timer_init_lock);
@@ -849,16 +863,16 @@ void generate_pcbs() {
 	    lock_2 = lock_constructor();
 
 	    new_pcb = make_pcb();
-	    if (new_pcb == NULL) break;
 	    new_pcb->terminate = 0;
+	    if (new_pcb == NULL) break;
 	    proc_to_lock_map_p new_map_1 = proc_map_constructor(lock_1, lock_2, new_pcb);
 	    proc_map_list_add(list_of_locks, new_map_1);
 	    new_pcb->proc_type = MUTEX;
 	    q_enqueue(new_queue, new_pcb);
 
 	    new_pcb = make_pcb();
-	    if (new_pcb == NULL) break;
 	    new_pcb->terminate = 0;
+	    if (new_pcb == NULL) break;
 	    proc_to_lock_map_p new_map_2 = proc_map_constructor(lock_1, lock_2, new_pcb);
 	    proc_map_list_add(list_of_locks, new_map_2);
 	    new_pcb->proc_type = MUTEX;
@@ -868,26 +882,26 @@ void generate_pcbs() {
 	    // if we want deadlock
 	    // make_pcb_mutex(new_pcb, lock_2, lock_1);
 	case 3: // prod/consumer proc
-            
-            if (count_prod_cons_procs < MAX_INTENSIVE_PROCS) { // SECTION ADDED BY DINO - REMOVE LATER. USED TO FIND LINES TO ADD TO OFFICIAL PROJ.
-                if (count_prod_cons_procs % 2 == 0) {
-                    // its a prod 
-                    new_pcb = make_pcb();
-                    new_pcb->proc_type = PROD;
-                    new_pcb->prod_cons_id = count_prod_cons_procs;
-                    count_prod_cons_procs++;
-                    q_enqueue(new_queue, new_pcb);
-                } else {
-                    // its a cons
-                    new_pcb = make_pcb();
-                    new_pcb->proc_type = CONS;
-                    new_pcb->prod_cons_id = count_prod_cons_procs - 1;
-                    count_prod_cons_procs++;
-                    q_enqueue(new_queue, new_pcb);
-                }
-                //break;
+	    if (count_prod_cons_procs < MAX_PROD_CONS_PROC_PAIRS) { // SECTION ADDED BY DINO - REMOVE LATER. USED TO FIND LINES TO ADD TO OFFICIAL PROJ.
+                // its a prod 
+                //c_Variable_p empty, fill; // used for prod/cons problem
+                new_pcb = make_pcb();
+                new_pcb->proc_type = PROD;
+                new_pcb->prod_cons_id = count_prod_cons_procs;
+                prod_cons_cond_vars[count_prod_cons_procs][0] = cond_variable_constructor();
+                prod_cons_cond_vars[count_prod_cons_procs][1] = cond_variable_constructor();
+                prod_cons_locks[count_prod_cons_procs] = lock_constructor();
+                //count_prod_cons_procs++;
+                q_enqueue(new_queue, new_pcb);
+                // its a cons
+                new_pcb = make_pcb();
+                new_pcb->proc_type = CONS;
+                new_pcb->prod_cons_id = count_prod_cons_procs;
+                count_prod_cons_procs++;
+                q_enqueue(new_queue, new_pcb);
+            //break;
             }
-	    break;
+            break;
 	default:
 	    break;
 	}
@@ -913,9 +927,9 @@ PCB_p make_pcb() {
         time_t current_time = time(NULL);
         my_pcb->creation_time = current_time;
         /* Set the max_pc.. */
-        my_pcb->max_pc = MIN_MAX_PC_VAL + rand() % MAX_PC_MODULO;
+        my_pcb->max_pc = MIN_MAX_PC_VAL + (rand() % MAX_PC_MODULO);
         /* Start the PC at some value < max_pc for testing. */
-        my_pcb->context->pc = rand() % my_pcb->max_pc;
+        my_pcb->context->pc = 0;
         /*
          * Set the number of runs before termination to a random number between
          * MIN_NUM_BEFORE_TERM and MIN_NUM_BEFORE_TERM + RANDOM_NUM_BEFORE_TERM + 1
@@ -991,6 +1005,13 @@ void lock_trap(Lock_p lock) {
     running_process->state = STATE_BLOCKED;
     running_process = NULL;
     scheduler(TRAP_IO);
+}
+
+void prod_cons_trap() {
+    running_process->context->pc = cpu_pc - 1;
+    running_process->state = STATE_BLOCKED;
+    running_process = NULL;
+    scheduler(TRAP_PROD_CONS);
 }
 
 void unlock_and_release_waiting_procs(Lock_p lock) {
