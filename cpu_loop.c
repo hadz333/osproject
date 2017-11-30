@@ -33,11 +33,14 @@
 #define MAX_IO_PROCS 50
 #define MAX_INTENSIVE_PROCS 25
 
+#define DEADLOCK_CHECK_THRESHOLD 10
+
 int count_io_procs = 0;
 int count_comp_procs = 0;
 
-proc_map_list_p list_of_locks;
+int deadlock_check_counter = 0;
 
+proc_map_list_p list_of_locks;
 
 /* Mutexes */
 pthread_mutex_t timer_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -189,7 +192,7 @@ int main(void) {
     
     initialize_system();
 
-    while (program_executing) { // TODO: add trylock for io interrupt lock
+    while (program_executing) { 
         if (pthread_mutex_trylock(&timer_lock) == 0) {//pthread_mutex_trylock(&io_lock) == 0) {
 	    if (running_process != NULL && running_process->proc_type == MUTEX)
 		//if (cpu_pc > 10)
@@ -233,6 +236,12 @@ int cpu() {
             cpu_pc = 0;
             running_process->term_count++;
         }
+
+	if (deadlock_check_counter >= DEADLOCK_CHECK_THRESHOLD) {
+	    deadlock_monitor();
+	    deadlock_check_counter = 0;
+	}
+
     }
 
     // consider different kinds of procs!
@@ -694,6 +703,7 @@ void dispatcher() {
         cpu_pc = sys_stack;
         /* Set the timer's downcounter to the quantum size of the newly-running proc */
         //timer_downcounter = quantum_times[running_process->priority];
+	deadlock_check_counter++;
     }
 }
 
@@ -888,6 +898,27 @@ PCB_p make_pcb() {
     }
     return my_pcb;
 }
+
+
+int deadlock_monitor() {
+    proc_node_p currnode = list_of_locks->head;
+    while (currnode != NULL) {
+	PCB_p mutproc1 = currnode->map->proc;
+	Lock_p currlock1 = currnode->map->lock_1; 
+	Lock_p currlock2 = currnode->map->lock_2;
+	if ((currlock1->current_proc == NULL || currlock2->current_proc == NULL)
+		|| (currlock1->current_proc == mutproc1 && currlock1->current_proc == mutproc1)) {
+	    printf("No deadlock detected\n\n");
+	    continue;
+	} else { 
+	   if ((currlock1->current_proc == mutproc1 && q_peek(currlock2->waiting_procs) == mutproc1)
+		   || (q_peek(currlock1->waiting_procs) == mutproc1 && currlock1->current_proc == mutproc1)) {
+	       //printf("Deadlock detected on processes PID%u and PID%u", mutproc1->pid, mutproc2->pid);
+	   }
+	}
+    }
+}
+
 
 /*
  * Prints the current state of the queues:
