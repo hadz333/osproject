@@ -142,6 +142,8 @@ void generate_pcbs();
 PCB_p make_pcb();
 /* Tests a process for privileged status in the current simulation. */
 int is_privileged(PCB_p pcb);
+/* Monitors for deadlock */
+int deadlock_monitor();
 /* Prints the current state of the queues. */
 void print_queue_state();
 /* Prints the privileged processes. */
@@ -928,7 +930,7 @@ int deadlock_monitor() {
 	        printf("currlock1 proc %u, currlock2 proc %u\n\n", currlock1->current_proc->pid, currlock2->current_proc->pid);
 	       if ((currlock1->current_proc == mutproc1 && q_peek(currlock2->waiting_procs) == mutproc1)
 	    	   || (q_peek(currlock1->waiting_procs) == mutproc1 && currlock2->current_proc == mutproc1)) {
-	           printf("Deadlock detected on processes PID%u ", mutproc1->pid, mutproc1->pid + 1);
+	           printf("Deadlock detected on processes PID%u and PID%u", mutproc1->pid, mutproc1->pid + 1);
 	           currnode = currnode->next;
 		   continue;
 	       } else {
