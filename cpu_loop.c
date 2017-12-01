@@ -39,6 +39,8 @@ int count_io_procs = 0;
 int count_comp_procs = 0;
 
 int deadlock_check_counter = 0;
+int deadlock_flag = -1;
+
 
 proc_map_list_p list_of_locks;
 
@@ -904,19 +906,26 @@ int deadlock_monitor() {
     proc_node_p currnode = list_of_locks->head;
     while (currnode != NULL) {
 	PCB_p mutproc1 = currnode->map->proc;
+	printf("inside deadmon, pcb%u\n\n", mutproc1->pid);
 	Lock_p currlock1 = currnode->map->lock_1; 
 	Lock_p currlock2 = currnode->map->lock_2;
 	if ((currlock1->current_proc == NULL || currlock2->current_proc == NULL)
 		|| (currlock1->current_proc == mutproc1 && currlock1->current_proc == mutproc1)) {
-	    printf("No deadlock detected\n\n");
+	    deadlock_flag = -1;
+	    currnode = currnode->next;
 	    continue;
 	} else { 
 	   if ((currlock1->current_proc == mutproc1 && q_peek(currlock2->waiting_procs) == mutproc1)
-		   || (q_peek(currlock1->waiting_procs) == mutproc1 && currlock1->current_proc == mutproc1)) {
-	       //printf("Deadlock detected on processes PID%u and PID%u", mutproc1->pid, mutproc2->pid);
+		   || (q_peek(currlock1->waiting_procs) == mutproc1 && currlock2->current_proc == mutproc1)) {
+	       printf("Deadlock detected on processes PID%u ", mutproc1->pid); //, mutproc2->pid);
+	       currnode = currnode->next;
+	   } else {
+	       currnode = currnode->next;
+	       continue;
 	   }
 	}
     }
+    return 0;
 }
 
 
@@ -944,6 +953,10 @@ void print_on_event() {
     if (running_process != NULL) {
         printf("Running: PID %u, PRIORITY %u, PC %u\n", running_process->pid, running_process->priority, running_process->context->pc);
     }
+    if (deadlock_flag == -1) {
+	printf("No deadlock found\n");
+    }
+
     printf("Current Iteration: %u\n", current_iteration);
     print_queue_state();
 
