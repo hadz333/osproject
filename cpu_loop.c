@@ -137,6 +137,8 @@ void handle_priority_reset();
 
 void lock_thread_by_priority(enum interrupt_type type);
 
+int exists(unsigned int check, unsigned int arr[], int size, PCB_p proc);
+
 
 /******************
  * UTILITY
@@ -954,17 +956,46 @@ PCB_p make_pcb() {
         my_pcb->terminate = MIN_NUM_BEFORE_TERM + rand() % RANDOM_NUM_BEFORE_TERM;
 
         for (i = 0; i < NUM_IO_TRAPS; i++) {
-            my_pcb->io_1_traps[i] = rand() % (my_pcb->max_pc/NUM_IO_TRAPS);
-            my_pcb->io_2_traps[i] = rand() % (my_pcb->max_pc/NUM_IO_TRAPS);
+	    unsigned int first = rand() % (my_pcb->max_pc/NUM_IO_TRAPS);
+	    unsigned int second = rand() % (my_pcb->max_pc/NUM_IO_TRAPS);
+
+	    my_pcb->io_1_traps[i] = first;
+	    my_pcb->io_2_traps[i] = second;
             /* If we're past the first io trap, add the previous value to this one. */
             if (i > 0) {
                 my_pcb->io_1_traps[i] = my_pcb->io_1_traps[i] + my_pcb->io_1_traps[i-1];
                 my_pcb->io_2_traps[i] = my_pcb->io_2_traps[i] + my_pcb->io_2_traps[i-1];
             }
+
+	    if (exists(my_pcb->io_2_traps[i], my_pcb->io_1_traps, i, my_pcb) == 1) {
+		i--;
+		continue;
+	    }
         }
     }
     return my_pcb;
 }
+
+int exists(unsigned int check, unsigned int arr[], int size, PCB_p proc) {
+    int i;
+    for (i = 0; i < 4; i++) {
+	if (exists_in_range(proc->lock_1[i], proc->unlock_1[i], check) == 1 ||
+	    exists_in_range(proc->trylock_1[i], proc->try_unlock_1[i], check) ||
+	    exists_in_range(proc->prod_cons_lock[i]-1, proc->prod_cons_lock[i]+1, check)) {
+	    return 1;
+	}
+    }
+
+    if (contains(arr, proc, size) == 1) return 1;
+
+    return 0;
+}
+
+int exists_in_range(unsigned int base, unsigned int bound, unsigned int check) {
+    return check >= base && check <= bound;
+}
+
+
 
 /*
  * Prints the current state of the queues:
