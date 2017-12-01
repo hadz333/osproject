@@ -18,13 +18,13 @@ int cond_variable_signal(c_Variable_p var, PCB_p running_process, Lock_p prod_co
 
 
 int cond_variable_wait(Lock_p lock, c_Variable_p var, PCB_p running_process) {
-    release(&lock);
+    release_lock(lock);
     q_enqueue(var->queue, running_process); 
 }
 
 c_Variable_p cond_variable_constructor() {
-    c_Variable_p pepe = malloc(sizeof(cond_variable_s));
-    pepe->queue = q_create();
-    return pepe;
+    c_Variable_p c_var = malloc(sizeof(cond_variable_s));
+    c_var->queue = q_create();
+    return c_var;
 }
 

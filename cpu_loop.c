@@ -340,16 +340,17 @@ int cpu() {
             } else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
                 if (prod_cons_globals[running_process->prod_cons_id][1] == 1) {
                     cond_variable_wait(prod_cons_cond_vars[running_process->prod_cons_id][1], 
-                            &prod_cons_locks[running_process->prod_cons_id], running_process); // wait for the read
+                            prod_cons_locks[running_process->prod_cons_id], running_process); // wait for the read
                     prod_cons_trap();
                 }
                 prod_cons_globals[running_process->prod_cons_id][0] += 1;
                 prod_cons_globals[running_process->prod_cons_id][1] = 1;
                 cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][0], running_process, 
                         prod_cons_locks, ready_queue); // signal that it was incremented
-                printf("Producer X incremented variable XY: %i \n", prod_cons_globals[running_process->prod_cons_id][0]);
+                printf("Producer pid %u incremented variable: %i \n", running_process->pid, 
+                        prod_cons_globals[running_process->prod_cons_id][0]);
             } else if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
-                release_lock(&prod_cons_locks[running_process->prod_cons_id]);
+                release_lock(prod_cons_locks[running_process->prod_cons_id]);
             }
             break;
 	case CONS:
@@ -358,15 +359,16 @@ int cpu() {
             } else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
                 if (prod_cons_globals[running_process->prod_cons_id][1] == 0) {
                     cond_variable_wait(prod_cons_cond_vars[running_process->prod_cons_id][0], 
-                            &prod_cons_locks[running_process->prod_cons_id], running_process); // wait for the increment
+                            prod_cons_locks[running_process->prod_cons_id], running_process); // wait for the increment
                     prod_cons_trap();
                 }
-                printf("Consumer Y read variable XY: %i \n", prod_cons_globals[running_process->prod_cons_id][0]);
+                printf("Consumer pid %u read variable: %i \n", running_process->pid, 
+                        prod_cons_globals[running_process->prod_cons_id][0]);
                 prod_cons_globals[running_process->prod_cons_id][1] = 0;
                 cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][1], running_process, 
                         prod_cons_locks, ready_queue); // signal that it was read 
             } else if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
-                release_lock(&prod_cons_locks[running_process->prod_cons_id]);
+                release_lock(prod_cons_locks[running_process->prod_cons_id]);
             }
             break;
 	default:
