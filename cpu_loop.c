@@ -844,7 +844,8 @@ void generate_pcbs() {
 	    new_pcb = make_pcb();
 	    new_pcb->terminate = 0;
 	    if (new_pcb == NULL) break;
-	    proc_to_lock_map_p new_map_2 = proc_map_constructor(lock_1, lock_2, new_pcb);
+	    //proc_to_lock_map_p new_map_2 = proc_map_constructor(lock_1, lock_2, new_pcb);
+	    proc_to_lock_map_p new_map_2 = proc_map_constructor(lock_2, lock_1, new_pcb);
 	    proc_map_list_add(list_of_locks, new_map_2);
 	    new_pcb->proc_type = MUTEX;
 	    q_enqueue(new_queue, new_pcb);
@@ -901,28 +902,40 @@ PCB_p make_pcb() {
     return my_pcb;
 }
 
-
+/*
+ * Checks for deadlock
+ */
 int deadlock_monitor() {
     proc_node_p currnode = list_of_locks->head;
+    int sequential_check = 0;
     while (currnode != NULL) {
-	PCB_p mutproc1 = currnode->map->proc;
-	printf("inside deadmon, pcb%u\n\n", mutproc1->pid);
-	Lock_p currlock1 = currnode->map->lock_1; 
-	Lock_p currlock2 = currnode->map->lock_2;
-	if ((currlock1->current_proc == NULL || currlock2->current_proc == NULL)
-		|| (currlock1->current_proc == mutproc1 && currlock1->current_proc == mutproc1)) {
-	    deadlock_flag = -1;
+	if (sequential_check != 0) {
+	    sequential_check = 0;
 	    currnode = currnode->next;
 	    continue;
-	} else { 
-	   if ((currlock1->current_proc == mutproc1 && q_peek(currlock2->waiting_procs) == mutproc1)
-		   || (q_peek(currlock1->waiting_procs) == mutproc1 && currlock2->current_proc == mutproc1)) {
-	       printf("Deadlock detected on processes PID%u ", mutproc1->pid); //, mutproc2->pid);
-	       currnode = currnode->next;
-	   } else {
-	       currnode = currnode->next;
-	       continue;
-	   }
+	} else {
+	    PCB_p mutproc1 = currnode->map->proc;
+	    sequential_check = 1;
+	    printf("inside deadmon, pcb%u\n\n", mutproc1->pid);
+	    Lock_p currlock1 = currnode->map->lock_1; 
+	    Lock_p currlock2 = currnode->map->lock_2;
+	    if ((currlock1->current_proc == NULL || currlock2->current_proc == NULL)
+	    	|| (currlock1->current_proc == mutproc1 && currlock1->current_proc == mutproc1)) {
+	        deadlock_flag = -1;
+	        currnode = currnode->next;
+	        continue;
+	    } else { 
+	        printf("currlock1 proc %u, currlock2 proc %u\n\n", currlock1->current_proc->pid, currlock2->current_proc->pid);
+	       if ((currlock1->current_proc == mutproc1 && q_peek(currlock2->waiting_procs) == mutproc1)
+	    	   || (q_peek(currlock1->waiting_procs) == mutproc1 && currlock2->current_proc == mutproc1)) {
+	           printf("Deadlock detected on processes PID%u ", mutproc1->pid, mutproc1->pid + 1);
+	           currnode = currnode->next;
+		   continue;
+	       } else {
+	           currnode = currnode->next;
+	           continue;
+	       }
+	    }
 	}
     }
     return 0;
@@ -981,6 +994,8 @@ void deallocate_system() {
 
     if (running_process != NULL)
         PCB_destroy(running_process);
+
+
 }
 
 void lock_trap(Lock_p lock) {
