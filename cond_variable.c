@@ -3,15 +3,18 @@
 
 
 
-int cond_variable_signal(c_Variable_p var, PCB_p running_process, Lock_p prod_cons_locks[10], PQ_p ready_queue) {
+int cond_variable_signal(c_Variable_p var, PCB_p running_process, Lock_p prod_cons_lock, PQ_p ready_queue) {
+    
     
     PCB_p waiting = q_dequeue(var->queue);
-    waiting->state = STATE_READY;
-    int c = lock(prod_cons_locks[waiting->prod_cons_id], running_process);
-    if (c == 0) {
-        pq_enqueue(ready_queue, waiting);
-    } else {
-        lock_trap();
+    if (waiting != NULL) {
+        waiting->state = STATE_READY;
+        int c = lock(prod_cons_lock, running_process);
+        if (c == 0) {
+            pq_enqueue(ready_queue, waiting);
+        } else {
+            lock_trap();
+        }
     }
     
 }
