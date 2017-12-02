@@ -17,7 +17,7 @@
 /* The number of proccesses (minus one) to generate on initialization. */
 #define NUM_PROCESSES 40
 //#define TEST_ITERATIONS 10000
-#define TEST_ITERATIONS 30000
+#define TEST_ITERATIONS 60000
 #define PRIORITY_ZERO_TIME 5 /* Itty bitty quantum sizes for testing. */
 #define PER_PRIORITY_TIME_INCREASE 8
 #define S_MULTIPLE 8
@@ -29,7 +29,7 @@
 #define IO_DELAY_BASE 10
 #define IO_DELAY_MOD 100
 //#define TIMER_SLEEP 1000000000
-#define TIMER_SLEEP 100000000
+#define TIMER_SLEEP 10000000
 
 #define NUM_TYPE_PROCS 4
 #define MAX_IO_PROCS 50
@@ -275,6 +275,9 @@ int cpu() {
 	case MUTEX:
 	    if (contains(running_process->lock_1, cpu_pc, 4) == 1) {
 		proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+		PCB_p lockedproc = map->lock_1->current_proc;
+		if (lockedproc != NULL)
+		    printf("lock 1 running process before lock attempt = %u\n", lockedproc->pid);
 		int attempt = lock(map->lock_1, running_process);
 		if (attempt == 0) {
 	    	    printf("LOCK 1 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
