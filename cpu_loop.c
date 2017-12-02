@@ -16,7 +16,8 @@
 
 /* The number of proccesses (minus one) to generate on initialization. */
 #define NUM_PROCESSES 40
-#define TEST_ITERATIONS 10000
+//#define TEST_ITERATIONS 10000
+#define TEST_ITERATIONS 30000
 #define PRIORITY_ZERO_TIME 5 /* Itty bitty quantum sizes for testing. */
 #define PER_PRIORITY_TIME_INCREASE 8
 #define S_MULTIPLE 8
@@ -27,7 +28,8 @@
 #define NUM_IO_DEVICES 2
 #define IO_DELAY_BASE 10
 #define IO_DELAY_MOD 100
-#define TIMER_SLEEP 1000000000
+//#define TIMER_SLEEP 1000000000
+#define TIMER_SLEEP 100000000
 
 #define NUM_TYPE_PROCS 4
 #define MAX_IO_PROCS 50
@@ -207,6 +209,11 @@ int main(void) {
                 program_executing = 0;
             pthread_mutex_unlock(&timer_lock);
         }
+    }
+    if (deadlock_flag == -1) {
+        printf("No deadlock occurred during run\n");
+    } else {
+        printf("Deadlock occurred at least once\n");
     }
     pthread_join(timer_thread, NULL);
     pthread_cond_signal(&io_cond_1);
@@ -918,7 +925,7 @@ int deadlock_monitor() {
 	} else {
 	    PCB_p mutproc1 = currnode->map->proc;
 	    sequential_check = 1;
-	    printf("inside deadmon, pcb%u\n\n", mutproc1->pid);
+	    //printf("inside deadmon, pcb%u\n\n", mutproc1->pid);
 	    Lock_p currlock1 = currnode->map->lock_1; 
 	    Lock_p currlock2 = currnode->map->lock_2;
 	    if ((currlock1->current_proc == NULL || currlock2->current_proc == NULL)
