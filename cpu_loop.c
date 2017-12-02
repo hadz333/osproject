@@ -125,6 +125,9 @@ void trap_io(unsigned int io_device);
 /* Tests if the running process should call an IO trap. */
 int test_io_trap();
 
+
+void prod_cons_trap();
+
 /******************
  * PROCESS HANDLING
  *****************/
@@ -163,6 +166,7 @@ void print_on_event();
 /* Deallocates all system resoucres. */
 void deallocate_system();
 
+int exists_in_range(unsigned int base, unsigned int bound, unsigned int check);
 
 /* GLOBALS */
 
@@ -234,8 +238,6 @@ int main(void) {
  */
 int cpu() {
     int i;
-    /* Flag for if an interrupt fires. */
-    int is_interrupt = 0;
     /* Count of CPU instructions since last call to S. */
     cpu_cycles_since_reset++;
 
