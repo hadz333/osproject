@@ -41,51 +41,71 @@ void initialize_data(/* in-out */ PCB_p pcb) {
   pcb->context->r6 = 0;
   pcb->context->r7 = 0;
 
+  //pcb->lock_1[0] = 5;
+  //pcb->lock_1[1] = 10;
+  //pcb->lock_1[2] = 200;
+  //pcb->lock_1[3] = 500;
+
+  //pcb->lock_2[0] = 6;
+  //pcb->lock_2[1] = 11;
+  //pcb->lock_2[2] = 201;
+  //pcb->lock_2[3] = 501;
+
+  //pcb->unlock_2[0] = 7;
+  //pcb->unlock_2[1] = 12;
+  //pcb->unlock_2[2] = 202;
+  //pcb->unlock_2[3] = 502;
+
+  //pcb->unlock_1[0] = 8;
+  //pcb->unlock_1[1] = 13;
+  //pcb->unlock_1[2] = 203;
+  //pcb->unlock_1[3] = 503;
+  
   pcb->lock_1[0] = 5;
-  pcb->lock_1[1] = 10;
+  pcb->lock_1[1] = 18;
   pcb->lock_1[2] = 200;
   pcb->lock_1[3] = 500;
 
   pcb->lock_2[0] = 6;
-  pcb->lock_2[1] = 11;
+  pcb->lock_2[1] = 19;
   pcb->lock_2[2] = 201;
   pcb->lock_2[3] = 501;
 
-  pcb->unlock_2[0] = 7;
-  pcb->unlock_2[1] = 12;
-  pcb->unlock_2[2] = 202;
-  pcb->unlock_2[3] = 502;
+  pcb->unlock_2[0] = 14;
+  pcb->unlock_2[1] = 30;
+  pcb->unlock_2[2] = 250;
+  pcb->unlock_2[3] = 570;
 
-  pcb->unlock_1[0] = 8;
-  pcb->unlock_1[1] = 13;
-  pcb->unlock_1[2] = 203;
-  pcb->unlock_1[3] = 503;
+  pcb->unlock_1[0] = 15; 
+  pcb->unlock_1[1] = 31;
+  pcb->unlock_1[2] = 251;
+  pcb->unlock_1[3] = 571;
 
-  pcb->trylock_1[0] = 14;
+  pcb->trylock_1[0] = 33;
   pcb->trylock_1[1] = 50;
-  pcb->trylock_1[2] = 250;
-  pcb->trylock_1[3] = 275;
+  pcb->trylock_1[2] = 280;
+  pcb->trylock_1[3] = 300;
 
-  pcb->trylock_2[0] = 15;
+  pcb->trylock_2[0] = 34;
   pcb->trylock_2[1] = 51;
-  pcb->trylock_2[2] = 251;
-  pcb->trylock_2[3] = 276;
+  pcb->trylock_2[2] = 281;
+  pcb->trylock_2[3] = 301;
 
-  pcb->try_unlock_2[0] = 16;
+  pcb->try_unlock_2[0] = 35;
   pcb->try_unlock_2[1] = 52;
-  pcb->try_unlock_2[2] = 252;
-  pcb->try_unlock_2[3] = 277;
+  pcb->try_unlock_2[2] = 282;
+  pcb->try_unlock_2[3] = 302;
 
-  pcb->try_unlock_1[0] = 17;
+  pcb->try_unlock_1[0] = 36;
   pcb->try_unlock_1[1] = 54;
-  pcb->try_unlock_1[2] = 253;
-  pcb->try_unlock_1[3] = 278;
 
   pcb->prod_cons_lock[0] = 69;
   pcb->prod_cons_lock[0] = 160;
   pcb->prod_cons_lock[0] = 251;
   pcb->prod_cons_lock[0] = 299;
 
+  pcb->try_unlock_1[2] = 283;
+  pcb->try_unlock_1[3] = 303;
 }
 
 /*
