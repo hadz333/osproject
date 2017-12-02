@@ -16,8 +16,7 @@
 
 /* The number of proccesses (minus one) to generate on initialization. */
 #define NUM_PROCESSES 40
-//#define TEST_ITERATIONS 10000
-#define TEST_ITERATIONS 60000
+#define TEST_ITERATIONS 10000
 #define PRIORITY_ZERO_TIME 5 /* Itty bitty quantum sizes for testing. */
 #define PER_PRIORITY_TIME_INCREASE 8
 #define S_MULTIPLE 8
@@ -28,14 +27,14 @@
 #define NUM_IO_DEVICES 2
 #define IO_DELAY_BASE 10
 #define IO_DELAY_MOD 100
-//#define TIMER_SLEEP 1000000000
-#define TIMER_SLEEP 10000000
+#define TIMER_SLEEP 1000000000
 
 #define NUM_TYPE_PROCS 4
 #define MAX_IO_PROCS 50
 #define MAX_INTENSIVE_PROCS 25
 
-#define DEADLOCK_CHECK_THRESHOLD 10
+#define DEADLOCK_CHECK_THRESHOLD 10 //how many context switches before checking for deadlock
+#define CREATE_DEADLOCK_TRUE 1 // change to 1 if you want deadlock
 
 int count_io_procs = 0;
 int count_comp_procs = 0;
@@ -202,7 +201,7 @@ int main(void) {
         if (pthread_mutex_trylock(&timer_lock) == 0) {//pthread_mutex_trylock(&io_lock) == 0) {
 	    if (running_process != NULL && running_process->proc_type == MUTEX)
 		//if (cpu_pc > 10)
-		    printf("thank you god %u\n", cpu_pc);
+		    //printf("thank you god %u\n", cpu_pc);
             program_executing = cpu();
             current_iteration++;
             if (current_iteration > TEST_ITERATIONS)
@@ -211,9 +210,9 @@ int main(void) {
         }
     }
     if (deadlock_flag == -1) {
-        printf("No deadlock occurred during run\n");
+        printf("Run finished. No deadlock occurred during run\n");
     } else {
-        printf("Deadlock occurred at least once\n");
+        printf("Run finished. Deadlock occurred at least once\n");
     }
     pthread_join(timer_thread, NULL);
     pthread_cond_signal(&io_cond_1);
@@ -276,22 +275,25 @@ int cpu() {
 	    if (contains(running_process->lock_1, cpu_pc, 4) == 1) {
 		proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
 		PCB_p lockedproc = map->lock_1->current_proc;
-		if (lockedproc != NULL)
-		    printf("lock 1 running process before lock attempt = %u\n", lockedproc->pid);
+		//if (lockedproc != NULL)
+		    //printf("lock 1 has process pid=%u, running proc pid=%u\n", lockedproc->pid, running_process->pid);
 		int attempt = lock(map->lock_1, running_process);
 		if (attempt == 0) {
-	    	    printf("LOCK 1 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
+	    	    printf("LOCK 1 proc pid: %u - pc: %u \n", running_process->pid, cpu_pc);
 		} else {
-		    printf("sleeping lock 1\n");
+		    //printf("sleeping lock 1, pid %u\n", running_process->pid);
 		    lock_trap(map->lock_1);
 		}
 	    } else if (contains(running_process->lock_2, cpu_pc, 4) == 1) {
 	    	proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+		PCB_p lockedproc = map->lock_2->current_proc;
+		//if (lockedproc != NULL)
+		    //printf("lock 2 has process pid=%u, running proc pid=%u\n", lockedproc->pid, running_process->pid);
 	    	int attempt = lock(map->lock_2, running_process);
 	    	if (attempt == 0) {
-	    	    printf("LOCK 2 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
+	    	    printf("LOCK 2 proc pid: %u - pc: %u \n", running_process->pid, cpu_pc);
 	    	} else {
-	    	    printf("sleeping lock 2\n");
+		    //printf("sleeping lock 2, pid %u\n", running_process->pid);
 	    	    lock_trap(map->lock_2);
 	    	}
 	    } else if (contains(running_process->unlock_1, cpu_pc, 4) == 1) {
@@ -856,8 +858,12 @@ void generate_pcbs() {
 	    new_pcb = make_pcb();
 	    new_pcb->terminate = 0;
 	    if (new_pcb == NULL) break;
-	    //proc_to_lock_map_p new_map_2 = proc_map_constructor(lock_1, lock_2, new_pcb);
-	    proc_to_lock_map_p new_map_2 = proc_map_constructor(lock_2, lock_1, new_pcb);
+	    proc_to_lock_map_p new_map_2;
+	    if (CREATE_DEADLOCK_TRUE == 0) {
+		new_map_2 = proc_map_constructor(lock_1, lock_2, new_pcb);
+	    } else {
+		new_map_2 = proc_map_constructor(lock_2, lock_1, new_pcb);
+	    }
 	    proc_map_list_add(list_of_locks, new_map_2);
 	    new_pcb->proc_type = MUTEX;
 	    q_enqueue(new_queue, new_pcb);
@@ -928,20 +934,19 @@ int deadlock_monitor() {
 	} else {
 	    PCB_p mutproc1 = currnode->map->proc;
 	    sequential_check = 1;
-	    //printf("inside deadmon, pcb%u\n\n", mutproc1->pid);
 	    Lock_p currlock1 = currnode->map->lock_1; 
 	    Lock_p currlock2 = currnode->map->lock_2;
 	    if ((currlock1->current_proc == NULL || currlock2->current_proc == NULL)
-	    	|| (currlock1->current_proc == mutproc1 && currlock1->current_proc == mutproc1)) {
-	        deadlock_flag = -1;
+	    	|| (currlock1->current_proc == mutproc1 && currlock2->current_proc == mutproc1)) {
 	        currnode = currnode->next;
 	        continue;
 	    } else { 
-	        printf("currlock1 proc %u, currlock2 proc %u\n\n", currlock1->current_proc->pid, currlock2->current_proc->pid);
+	        //printf("currlock1 proc %u, currlock2 proc %u\n\n", currlock1->current_proc->pid, currlock2->current_proc->pid);
 	       if ((currlock1->current_proc == mutproc1 && q_peek(currlock2->waiting_procs) == mutproc1)
 	    	   || (q_peek(currlock1->waiting_procs) == mutproc1 && currlock2->current_proc == mutproc1)) {
-	           printf("Deadlock detected on processes PID%u and PID%u", mutproc1->pid, mutproc1->pid + 1);
+	           printf("Deadlock detected on processes PID%u and PID%u\n", mutproc1->pid, mutproc1->pid + 1);
 	           currnode = currnode->next;
+		   deadlock_flag=1;
 		   continue;
 	       } else {
 	           currnode = currnode->next;
@@ -1011,7 +1016,7 @@ void deallocate_system() {
 }
 
 void lock_trap(Lock_p lock) {
-    printf("DROPPING IN HERE\n");
+    //printf("DROPPING IN HERE\n");
     running_process->context->pc = cpu_pc - 1;
     running_process->state = STATE_BLOCKED;
     running_process = NULL;
