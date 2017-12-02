@@ -40,6 +40,46 @@ void initialize_data(/* in-out */ PCB_p pcb) {
   pcb->context->r5 = 0;
   pcb->context->r6 = 0;
   pcb->context->r7 = 0;
+
+  pcb->lock_1[0] = 5;
+  pcb->lock_1[1] = 10;
+  pcb->lock_1[2] = 200;
+  pcb->lock_1[3] = 500;
+
+  pcb->lock_2[0] = 6;
+  pcb->lock_2[1] = 11;
+  pcb->lock_2[2] = 201;
+  pcb->lock_2[3] = 501;
+
+  pcb->unlock_2[0] = 7;
+  pcb->unlock_2[1] = 12;
+  pcb->unlock_2[2] = 202;
+  pcb->unlock_2[3] = 502;
+
+  pcb->unlock_1[0] = 8;
+  pcb->unlock_1[1] = 13;
+  pcb->unlock_1[2] = 203;
+  pcb->unlock_1[3] = 503;
+
+  pcb->trylock_1[0] = 14;
+  pcb->trylock_1[1] = 50;
+  pcb->trylock_1[2] = 250;
+  pcb->trylock_1[3] = 275;
+
+  pcb->trylock_2[0] = 15;
+  pcb->trylock_2[1] = 51;
+  pcb->trylock_2[2] = 251;
+  pcb->trylock_2[3] = 276;
+
+  pcb->try_unlock_2[0] = 16;
+  pcb->try_unlock_2[1] = 52;
+  pcb->try_unlock_2[2] = 252;
+  pcb->try_unlock_2[3] = 277;
+
+  pcb->try_unlock_1[0] = 17;
+  pcb->try_unlock_1[1] = 54;
+  pcb->try_unlock_1[2] = 253;
+  pcb->try_unlock_1[3] = 278;
 }
 
 /*
@@ -52,7 +92,8 @@ PCB_p PCB_create() {
     if (new_pcb != NULL) {
         new_pcb->context = malloc(sizeof(CPU_context_s));
 
-        if (new_pcb->context != NULL && new_pcb->io_1_traps != NULL && new_pcb->io_2_traps != NULL) {
+	// is anything beyond the for and necessary here? Wouldn't we run into a stack overflow if this fasiled
+        if (new_pcb->context != NULL && new_pcb->io_1_traps != NULL && new_pcb->io_2_traps != NULL && new_pcb->lock_1 != NULL && new_pcb->lock_2 != NULL && new_pcb->unlock_1 != NULL && new_pcb->unlock_2 != NULL) {
           initialize_data(new_pcb);
         } else {
             free(new_pcb);
