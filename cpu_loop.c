@@ -45,10 +45,6 @@ c_Variable_p prod_cons_cond_vars[10][2]; // second dimension index 0 is fill, in
 int curr_prod_cons_id = 0;
 Lock_p prod_cons_locks[10];
 
-// prod cons shit
-
-
-
 
 proc_map_list_p list_of_locks;
 
@@ -274,6 +270,10 @@ int cpu() {
 	case MUTEX:
 	    if (contains(running_process->lock_1, cpu_pc, 4) == 1) {
 		proc_to_lock_map_p map = search_list_for_pcb(list_of_locks, running_process);
+		PCB_p lockedproc = map->lock_1->current_proc;
+		if (lockedproc != NULL) {
+		    printf("lock 1 has process before lock attempt = %u, running procces=%u\n", lockedproc->pid, running_process->pid);
+		}
 		int attempt = lock(map->lock_1, running_process);
 		if (attempt == 0) {
 	    	    printf("LOCK 1 proc pid  - %u - pc: %u \n", running_process->pid, cpu_pc);
