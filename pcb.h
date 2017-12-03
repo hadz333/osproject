@@ -77,6 +77,10 @@ typedef struct pcb {
     time_t termination_time; // system of of process termination, if relevant
     unsigned int terminate; // control field - how many runs until proc terminates
     unsigned int term_count; // counter - how many times has proc passed max_pc value
+
+
+    unsigned int prod_cons_id;
+
     unsigned int io_1_traps[NUM_IO_TRAPS];
     unsigned int io_2_traps[NUM_IO_TRAPS];
 
@@ -102,9 +106,10 @@ typedef struct pcb {
     unsigned int try_unlock_1[4];
     unsigned int try_unlock_2[4];
 
+    unsigned int prod_cons_lock[4];
     // other items to be added as needed.
 
-   unsigned int wait[NUM_WAIT];
+    unsigned int wait[NUM_WAIT];
     unsigned int signal[NUM_WAIT];
 
 } PCB_s;

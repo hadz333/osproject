@@ -33,8 +33,22 @@
 #define MAX_IO_PROCS 50
 #define MAX_INTENSIVE_PROCS 25
 
+#define MAX_PROD_CONS_PROC_PAIRS 10
+
 int count_io_procs = 0;
 int count_comp_procs = 0;
+
+
+int count_prod_cons_procs = 0;
+int prod_cons_globals[10][2]; // second dimension index 0 is counter incremented, index 1 is flip
+c_Variable_p prod_cons_cond_vars[10][2]; // second dimension index 0 is fill, index 1 is empty
+int curr_prod_cons_id = 0;
+Lock_p prod_cons_locks[10];
+
+// prod cons shit
+
+
+
 
 proc_map_list_p list_of_locks;
 
@@ -74,6 +88,7 @@ enum interrupt_type {
     INT_TERMINATE,
     TRAP_IO,
     INTERRUPT_COUNT,
+    TRAP_PROD_CONS,
 };
 
 /* FUNCTIONS */
@@ -110,6 +125,9 @@ void trap_io(unsigned int io_device);
 /* Tests if the running process should call an IO trap. */
 int test_io_trap();
 
+
+void prod_cons_trap();
+
 /******************
  * PROCESS HANDLING
  *****************/
@@ -121,6 +139,8 @@ void dispatcher();
 void handle_priority_reset();
 
 void lock_thread_by_priority(enum interrupt_type type);
+
+int exists(unsigned int check, unsigned int arr[], int size, PCB_p proc);
 
 
 /******************
@@ -146,6 +166,7 @@ void print_on_event();
 /* Deallocates all system resoucres. */
 void deallocate_system();
 
+int exists_in_range(unsigned int base, unsigned int bound, unsigned int check);
 
 /* GLOBALS */
 
@@ -217,8 +238,6 @@ int main(void) {
  */
 int cpu() {
     int i;
-    /* Flag for if an interrupt fires. */
-    int is_interrupt = 0;
     /* Count of CPU instructions since last call to S. */
     cpu_cycles_since_reset++;
 
@@ -327,7 +346,51 @@ int cpu() {
 	    }
 	    break;
 	case PROD:
+            if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
+                lock(
+		    prod_cons_locks[running_process->prod_cons_id],
+		    running_process); 
+            } else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
+
+                if (prod_cons_globals[running_process->prod_cons_id][1] == 1) {
+                    cond_variable_wait(prod_cons_locks[running_process->prod_cons_id], 
+                            prod_cons_cond_vars[running_process->prod_cons_id][1], running_process); // wait for the read
+                    prod_cons_trap();
+                } else {
+		    prod_cons_globals[running_process->prod_cons_id][0] += 1;
+		    prod_cons_globals[running_process->prod_cons_id][1] = 1;
+		    cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][0], running_process,
+					 prod_cons_locks[running_process->prod_cons_id], ready_queue); // signal that it was incremented
+		    printf("Producer pid %u incremented variable: %i \n", running_process->pid,
+			   prod_cons_globals[running_process->prod_cons_id][0]);
+		}
+
+            } else if (contains(running_process->prod_cons_lock, cpu_pc - 1, 4) == 1) {
+                release_lock(prod_cons_locks[running_process->prod_cons_id]);
+            }
+	    break;
 	case CONS:
+	    if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
+                lock(
+		    prod_cons_locks[running_process->prod_cons_id],
+		    running_process);
+
+            } else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
+                if (prod_cons_globals[running_process->prod_cons_id][1] == 0) {
+                    cond_variable_wait(prod_cons_locks[running_process->prod_cons_id],
+                            prod_cons_cond_vars[running_process->prod_cons_id][0], running_process); // wait for the increment
+                    prod_cons_trap();
+                } else {
+		    printf("Consumer pid %u read variable: %i \n", running_process->pid, 
+			   prod_cons_globals[running_process->prod_cons_id][0]);
+		    prod_cons_globals[running_process->prod_cons_id][1] = 0;
+		    cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][1], running_process, 
+					 prod_cons_locks[running_process->prod_cons_id], ready_queue); // signal that it was read 
+		}
+            } else if (contains(running_process->prod_cons_lock, cpu_pc - 1, 4) == 1) {
+                release_lock(prod_cons_locks[running_process->prod_cons_id]);
+            }
+	    break;
 	default:
 	    break;
 	}
@@ -841,6 +904,24 @@ void generate_pcbs() {
 	    // if we want deadlock
 	    // make_pcb_mutex(new_pcb, lock_2, lock_1);
 	case 3: // prod/consumer proc
+	        if (count_prod_cons_procs < MAX_PROD_CONS_PROC_PAIRS) { // SECTION ADDED BY DINO - REMOVE LATER. USED TO FIND LINES TO ADD TO OFFICIAL PROJ.
+                // its a prod 
+                //c_Variable_p empty, fill; // used for prod/cons problem
+		    new_pcb = make_pcb();
+		    new_pcb->proc_type = PROD;
+		    new_pcb->prod_cons_id = count_prod_cons_procs;
+		    prod_cons_cond_vars[count_prod_cons_procs][0] = cond_variable_constructor();
+		    prod_cons_cond_vars[count_prod_cons_procs][1] = cond_variable_constructor();
+		    prod_cons_locks[count_prod_cons_procs] = lock_constructor();
+		    //count_prod_cons_procs++;
+		    q_enqueue(new_queue, new_pcb);
+		    // its a cons
+		    new_pcb = make_pcb();
+		    new_pcb->proc_type = CONS;
+		    new_pcb->prod_cons_id = count_prod_cons_procs;
+		    count_prod_cons_procs++;
+		    q_enqueue(new_queue, new_pcb);
+		}
 	    break;
 	default:
 	    break;
@@ -877,17 +958,46 @@ PCB_p make_pcb() {
         my_pcb->terminate = MIN_NUM_BEFORE_TERM + rand() % RANDOM_NUM_BEFORE_TERM;
 
         for (i = 0; i < NUM_IO_TRAPS; i++) {
-            my_pcb->io_1_traps[i] = rand() % (my_pcb->max_pc/NUM_IO_TRAPS);
-            my_pcb->io_2_traps[i] = rand() % (my_pcb->max_pc/NUM_IO_TRAPS);
+	    unsigned int first = rand() % (my_pcb->max_pc/NUM_IO_TRAPS);
+	    unsigned int second = rand() % (my_pcb->max_pc/NUM_IO_TRAPS);
+
+	    my_pcb->io_1_traps[i] = first;
+	    my_pcb->io_2_traps[i] = second;
             /* If we're past the first io trap, add the previous value to this one. */
             if (i > 0) {
                 my_pcb->io_1_traps[i] = my_pcb->io_1_traps[i] + my_pcb->io_1_traps[i-1];
                 my_pcb->io_2_traps[i] = my_pcb->io_2_traps[i] + my_pcb->io_2_traps[i-1];
             }
+
+	    if (exists(my_pcb->io_2_traps[i], my_pcb->io_1_traps, i, my_pcb) == 1) {
+		i--;
+		continue;
+	    }
         }
     }
     return my_pcb;
 }
+
+int exists(unsigned int check, unsigned int arr[], int size, PCB_p proc) {
+    int i;
+    for (i = 0; i < 4; i++) {
+	if (exists_in_range(proc->lock_1[i], proc->unlock_1[i], check) == 1 ||
+	    exists_in_range(proc->trylock_1[i], proc->try_unlock_1[i], check) ||
+	    exists_in_range(proc->prod_cons_lock[i]-1, proc->prod_cons_lock[i]+1, check)) {
+	    return 1;
+	}
+    }
+
+    if (contains(arr, proc, size) == 1) return 1;
+
+    return 0;
+}
+
+int exists_in_range(unsigned int base, unsigned int bound, unsigned int check) {
+    return check >= base && check <= bound;
+}
+
+
 
 /*
  * Prints the current state of the queues:
@@ -954,4 +1064,11 @@ void unlock_and_release_waiting_procs(Lock_p lock) {
 	proc->state = STATE_READY;
 	pq_enqueue(ready_queue, proc);
     }
+}
+
+void prod_cons_trap() {
+    running_process->context->pc = cpu_pc - 1;
+    running_process->state = STATE_BLOCKED;
+    running_process = NULL;
+    scheduler(TRAP_PROD_CONS);
 }

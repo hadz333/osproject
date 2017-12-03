@@ -80,6 +80,12 @@ void initialize_data(/* in-out */ PCB_p pcb) {
   pcb->try_unlock_1[1] = 54;
   pcb->try_unlock_1[2] = 253;
   pcb->try_unlock_1[3] = 278;
+
+  pcb->prod_cons_lock[0] = 69;
+  pcb->prod_cons_lock[0] = 160;
+  pcb->prod_cons_lock[0] = 251;
+  pcb->prod_cons_lock[0] = 299;
+
 }
 
 /*
