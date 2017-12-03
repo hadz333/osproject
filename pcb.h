@@ -106,7 +106,6 @@ typedef struct pcb {
     unsigned int try_unlock_1[4];
     unsigned int try_unlock_2[4];
 
-
     unsigned int prod_cons_lock[4];
     // other items to be added as needed.
 

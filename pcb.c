@@ -85,6 +85,7 @@ void initialize_data(/* in-out */ PCB_p pcb) {
   pcb->prod_cons_lock[0] = 160;
   pcb->prod_cons_lock[0] = 251;
   pcb->prod_cons_lock[0] = 299;
+
 }
 
 /*
