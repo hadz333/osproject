@@ -30,3 +30,8 @@ c_Variable_p cond_variable_constructor() {
     c_var->queue = q_create();
     return c_var;
 }
+
+void c_var_destructor(c_Variable_p var) {
+    q_destroy(var->queue);
+    free(var);
+}

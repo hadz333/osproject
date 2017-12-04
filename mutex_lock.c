@@ -48,7 +48,6 @@ proc_to_lock_map_p search_list_for_pcb(proc_map_list_p list, PCB_p proc) {
 	}
 	node = node->next;
     }
-    printf("Should not happen\n");
     return NULL; // this shouldn't really happen
 }
 
@@ -56,8 +55,13 @@ void proc_map_list_destructor(proc_map_list_p proc_map) {
     proc_node_p curr = proc_map->head;
     while (curr != NULL) {
 	proc_node_p next = curr->next;
+	proc_node_p next_2 = curr->next->next;
+	lock_destructor(curr->map->lock_1);
+	lock_destructor(curr->map->lock_2);
 	free(curr);
-	curr = next;
+	free(next);
+
+	curr = next_2;
     }
     free(proc_map);
 }

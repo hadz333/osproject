@@ -43,9 +43,12 @@ int count_comp_procs = 0;
 
 int count_prod_cons_procs = 0;
 int prod_cons_globals[10][2]; // second dimension index 0 is counter incremented, index 1 is flip
+
 c_Variable_p prod_cons_cond_vars[10][2]; // second dimension index 0 is fill, index 1 is empty
-int curr_prod_cons_id = 0;
 Lock_p prod_cons_locks[10];
+
+int curr_prod_cons_id = 0;
+
 
 
 proc_map_list_p list_of_locks;
@@ -226,17 +229,29 @@ int main(void) {
             pthread_mutex_unlock(&timer_lock);
         }
     }
-    if (deadlock_flag == -1) {
-        printf("Run finished. No deadlock occurred during run\n");
-    } else {
-        printf("Run finished. Deadlock occurred at least once\n");
-    }
     pthread_join(timer_thread, NULL);
     pthread_cond_signal(&io_cond_1);
     pthread_cond_signal(&io_cond_2);
     pthread_join(io_thread_1, NULL);
     pthread_join(io_thread_2, NULL);
+
     deallocate_system();
+    proc_map_list_destructor(list_of_locks);
+
+    int k;
+    for (k = 0; k < 10; k++) {
+	if (prod_cons_locks[k] != NULL) {
+	    lock_destructor(prod_cons_locks[k]);
+	    c_var_destructor(prod_cons_cond_vars[k][0]);
+	    c_var_destructor(prod_cons_cond_vars[k][1]);
+	}
+    }
+
+    if (deadlock_flag == -1) {
+        printf("Run finished. No deadlock occurred during run\n");
+    } else {
+        printf("Run finished. Deadlock occurred at least once\n");
+    }
     return program_executing;
 }
 
