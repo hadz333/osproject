@@ -16,7 +16,7 @@
 
 /* The number of proccesses (minus one) to generate on initialization. */
 #define NUM_PROCESSES 40
-#define TEST_ITERATIONS 100000
+#define TEST_ITERATIONS 10000
 #define PRIORITY_ZERO_TIME 5 /* Itty bitty quantum sizes for testing. */
 #define PER_PRIORITY_TIME_INCREASE 8
 #define S_MULTIPLE 8
@@ -243,6 +243,7 @@ int main(void) {
 
     proc_map_list_destructor(list_of_locks);
     int k;
+
     for (k = 0; k < 10; k++) {
 	if (prod_cons_locks[k] != NULL) {
 	    lock_destructor(prod_cons_locks[k]);
@@ -390,48 +391,57 @@ int cpu() {
 	    break;
 	case PROD:
             if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
-                lock(
-		    prod_cons_locks[running_process->prod_cons_id],
-		    running_process); 
+                int check = lock(prod_cons_locks[running_process->prod_cons_id], running_process); 
+		if (check == 1) {
+		    lock_trap(NULL);
+		    break;
+		}
+
             } else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
 
                 if (prod_cons_globals[running_process->prod_cons_id][1] == 1) {
                     cond_variable_wait(prod_cons_locks[running_process->prod_cons_id], 
                             prod_cons_cond_vars[running_process->prod_cons_id][1], running_process); // wait for the read
+	    	    unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
                     prod_cons_trap();
                 } else {
-		    prod_cons_globals[running_process->prod_cons_id][0] += 1;
-		    prod_cons_globals[running_process->prod_cons_id][1] = 1;
-		    cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][0], running_process,
-					 prod_cons_locks[running_process->prod_cons_id], ready_queue); // signal that it was incremented
-		    printf("Producer pid %u incremented variable: %i \n", running_process->pid,
-			   prod_cons_globals[running_process->prod_cons_id][0]);
-		}
+	    	    prod_cons_globals[running_process->prod_cons_id][0] += 1;
+	    	    prod_cons_globals[running_process->prod_cons_id][1] = 1;
+	    	    cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][0], running_process,
+	    				 prod_cons_locks[running_process->prod_cons_id], ready_queue); // signal that it was incremented
+	    	    printf("Producer pid %u incremented variable: %i \n", running_process->pid,
+	    		   prod_cons_globals[running_process->prod_cons_id][0]);
+	    	}
 
             } else if (contains(running_process->prod_cons_lock, cpu_pc - 1, 4) == 1) {
                 release_lock(prod_cons_locks[running_process->prod_cons_id]);
+	    	unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
             }
 	    break;
 	case CONS:
 	    if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
-                lock(
-		    prod_cons_locks[running_process->prod_cons_id],
-		    running_process);
-
+                int check = lock(prod_cons_locks[running_process->prod_cons_id], running_process); 
+		if (check == 1) {
+		    lock_trap(NULL);
+		    break;
+		}
+	    
             } else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
                 if (prod_cons_globals[running_process->prod_cons_id][1] == 0) {
                     cond_variable_wait(prod_cons_locks[running_process->prod_cons_id],
                             prod_cons_cond_vars[running_process->prod_cons_id][0], running_process); // wait for the increment
+	    	    unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
                     prod_cons_trap();
                 } else {
-		    printf("Consumer pid %u read variable: %i \n", running_process->pid, 
-			   prod_cons_globals[running_process->prod_cons_id][0]);
-		    prod_cons_globals[running_process->prod_cons_id][1] = 0;
-		    cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][1], running_process, 
-					 prod_cons_locks[running_process->prod_cons_id], ready_queue); // signal that it was read 
-		}
+	    	    printf("Consumer pid %u read variable: %i \n", running_process->pid, 
+	    		   prod_cons_globals[running_process->prod_cons_id][0]);
+	    	    prod_cons_globals[running_process->prod_cons_id][1] = 0;
+	    	    cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][1], running_process, 
+	    				 prod_cons_locks[running_process->prod_cons_id], ready_queue); // signal that it was read 
+	    	}
             } else if (contains(running_process->prod_cons_lock, cpu_pc - 1, 4) == 1) {
                 release_lock(prod_cons_locks[running_process->prod_cons_id]);
+	    	unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
             }
 	    break;
 	default:
@@ -1025,7 +1035,6 @@ PCB_p make_pcb() {
 	    if (exists(my_pcb->io_2_traps[i], my_pcb->io_1_traps, i, my_pcb) == 1 &&
 		exists(my_pcb->io_1_traps[i], my_pcb->io_2_traps, i, my_pcb) == 1) {
 	    } else {
-		printf("da new vals %d %d\n", my_pcb->io_1_traps[i], my_pcb->io_2_traps[i]);
 		i++;
 	    }
         }
