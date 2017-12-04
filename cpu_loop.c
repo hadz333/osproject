@@ -16,7 +16,7 @@
 
 /* The number of proccesses (minus one) to generate on initialization. */
 #define NUM_PROCESSES 40
-#define TEST_ITERATIONS 10000
+#define TEST_ITERATIONS 100000
 #define PRIORITY_ZERO_TIME 5 /* Itty bitty quantum sizes for testing. */
 #define PER_PRIORITY_TIME_INCREASE 8
 #define S_MULTIPLE 8
@@ -216,7 +216,7 @@ int main(void) {
 
     while (program_executing) { 
         if (pthread_mutex_trylock(&timer_lock) == 0) {//pthread_mutex_trylock(&io_lock) == 0) {
-	    if (running_process != NULL && running_process->proc_type == MUTEX)
+	    //if (running_process != NULL && running_process->proc_type == MUTEX)
 		//if (cpu_pc > 10)
 		    //printf("thank you god %u\n", cpu_pc);
             program_executing = cpu();
@@ -987,7 +987,9 @@ PCB_p make_pcb() {
          */
         my_pcb->terminate = MIN_NUM_BEFORE_TERM + rand() % RANDOM_NUM_BEFORE_TERM;
 
-        for (i = 0; i < NUM_IO_TRAPS; i++) {
+	i = 0;
+	while (i < NUM_IO_TRAPS) {
+	    //for (i = 0; i < NUM_IO_TRAPS; i++) {
 	    unsigned int first = rand() % (my_pcb->max_pc/NUM_IO_TRAPS);
 	    unsigned int second = rand() % (my_pcb->max_pc/NUM_IO_TRAPS);
 
@@ -999,9 +1001,11 @@ PCB_p make_pcb() {
                 my_pcb->io_2_traps[i] = my_pcb->io_2_traps[i] + my_pcb->io_2_traps[i-1];
             }
 
-	    if (exists(my_pcb->io_2_traps[i], my_pcb->io_1_traps, i, my_pcb) == 1) {
-		i--;
-		continue;
+	    if (exists(my_pcb->io_2_traps[i], my_pcb->io_1_traps, i, my_pcb) == 1 &&
+		exists(my_pcb->io_1_traps[i], my_pcb->io_2_traps, i, my_pcb) == 1) {
+	    } else {
+		printf("da new vals %d %d\n", my_pcb->io_1_traps[i], my_pcb->io_2_traps[i]);
+		i++;
 	    }
         }
     }
@@ -1012,13 +1016,13 @@ int exists(unsigned int check, unsigned int arr[], int size, PCB_p proc) {
     int i;
     for (i = 0; i < 4; i++) {
 	if (exists_in_range(proc->lock_1[i], proc->unlock_1[i], check) == 1 ||
-	    exists_in_range(proc->trylock_1[i], proc->try_unlock_1[i], check) ||
-	    exists_in_range(proc->prod_cons_lock[i]-1, proc->prod_cons_lock[i]+1, check)) {
+	    exists_in_range(proc->trylock_1[i], proc->try_unlock_1[i], check) == 1 ||
+	    exists_in_range(proc->prod_cons_lock[i]-1, proc->prod_cons_lock[i]+1, check) ==1) {
 	    return 1;
 	}
     }
 
-    if (contains(arr, proc, size) == 1) return 1;
+    if (contains(arr, check, size) == 1) return 1;
 
     return 0;
 }

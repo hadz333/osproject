@@ -100,9 +100,9 @@ void initialize_data(/* in-out */ PCB_p pcb) {
   pcb->try_unlock_1[1] = 54;
 
   pcb->prod_cons_lock[0] = 69;
-  pcb->prod_cons_lock[0] = 160;
-  pcb->prod_cons_lock[0] = 251;
-  pcb->prod_cons_lock[0] = 299;
+  pcb->prod_cons_lock[1] = 160;
+  pcb->prod_cons_lock[2] = 251;
+  pcb->prod_cons_lock[3] = 299;
 
   pcb->try_unlock_1[2] = 283;
   pcb->try_unlock_1[3] = 303;
