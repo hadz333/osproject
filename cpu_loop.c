@@ -955,24 +955,24 @@ void generate_pcbs() {
 	    // if we want deadlock
 	    // make_pcb_mutex(new_pcb, lock_2, lock_1);
 	case 3: // prod/consumer proc
-	    //if (count_prod_cons_procs < MAX_PROD_CONS_PROC_PAIRS) { // SECTION ADDED BY DINO - REMOVE LATER. USED TO FIND LINES TO ADD TO OFFICIAL PROJ.
-            //    // its a prod 
-            //    //c_Variable_p empty, fill; // used for prod/cons problem
-	    //	new_pcb = make_pcb();
-	    //	new_pcb->proc_type = PROD;
-	    //	new_pcb->prod_cons_id = count_prod_cons_procs;
-	    //	prod_cons_cond_vars[count_prod_cons_procs][0] = cond_variable_constructor();
-	    //	prod_cons_cond_vars[count_prod_cons_procs][1] = cond_variable_constructor();
-	    //	prod_cons_locks[count_prod_cons_procs] = lock_constructor();
-	    //	//count_prod_cons_procs++;
-	    //	q_enqueue(new_queue, new_pcb);
-	    //	// its a cons
-	    //	new_pcb = make_pcb();
-	    //	new_pcb->proc_type = CONS;
-	    //	new_pcb->prod_cons_id = count_prod_cons_procs;
-	    //	count_prod_cons_procs++;
-	    //	q_enqueue(new_queue, new_pcb);
-	    //}
+	    if (count_prod_cons_procs < MAX_PROD_CONS_PROC_PAIRS) { // SECTION ADDED BY DINO - REMOVE LATER. USED TO FIND LINES TO ADD TO OFFICIAL PROJ.
+                // its a prod 
+                //c_Variable_p empty, fill; // used for prod/cons problem
+	    	new_pcb = make_pcb();
+	    	new_pcb->proc_type = PROD;
+	    	new_pcb->prod_cons_id = count_prod_cons_procs;
+	    	prod_cons_cond_vars[count_prod_cons_procs][0] = cond_variable_constructor();
+	    	prod_cons_cond_vars[count_prod_cons_procs][1] = cond_variable_constructor();
+	    	prod_cons_locks[count_prod_cons_procs] = lock_constructor();
+	    	//count_prod_cons_procs++;
+	    	q_enqueue(new_queue, new_pcb);
+	    	// its a cons
+	    	new_pcb = make_pcb();
+	    	new_pcb->proc_type = CONS;
+	    	new_pcb->prod_cons_id = count_prod_cons_procs;
+	    	count_prod_cons_procs++;
+	    	q_enqueue(new_queue, new_pcb);
+	    }
 	    break;
 	default:
 	    break;
