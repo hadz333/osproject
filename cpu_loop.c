@@ -294,16 +294,6 @@ int cpu() {
     /* IO TRAP: Check for IO trap */
     if (running_process != NULL) {
 	switch (running_process->proc_type) {
-	case IO:
-	    i = test_io_trap();
-	    if (i) {
-	    	/* Test IO trap returns 1 larger than the IO device to use. */
-	    	i--;
-	    	//lock_thread_by_priority(TRAP_IO);
-	    	printf("EVENT: IO Trap Called for PID %u on IO Device %u\n", running_process->pid, i);
-	    	trap_io(i);
-	    }
-	    break;
 	case INTENSIVE: 
 	    break;
 	case MUTEX:
@@ -388,61 +378,72 @@ int cpu() {
 	    	    printf("this shouldn't happen 2\n");
 	    	}
 	    }
-	    break;
 	case PROD:
-            if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
-                int check = lock(prod_cons_locks[running_process->prod_cons_id], running_process); 
-		if (check == 1) {
-		    lock_trap(NULL);
-		    break;
+	    if (running_process->proc_type == PROD) {
+		if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
+		    int check = lock(prod_cons_locks[running_process->prod_cons_id], running_process); 
+		    if (check == 1) {
+			lock_trap(NULL);
+			break;
+		    }
+		    
+		} else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
+		    
+		    if (prod_cons_globals[running_process->prod_cons_id][1] == 1) {
+			cond_variable_wait(prod_cons_locks[running_process->prod_cons_id], 
+					   prod_cons_cond_vars[running_process->prod_cons_id][1], running_process); // wait for the read
+			unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
+			prod_cons_trap();
+		    } else {
+			prod_cons_globals[running_process->prod_cons_id][0] += 1;
+			prod_cons_globals[running_process->prod_cons_id][1] = 1;
+			cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][0], running_process,
+					     prod_cons_locks[running_process->prod_cons_id], ready_queue); // signal that it was incremented
+			printf("Producer pid %u incremented variable: %i \n", running_process->pid,
+			       prod_cons_globals[running_process->prod_cons_id][0]);
+		    }
+		    
+		} else if (contains(running_process->prod_cons_lock, cpu_pc - 1, 4) == 1) {
+		    release_lock(prod_cons_locks[running_process->prod_cons_id]);
+		    unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
 		}
-
-            } else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
-
-                if (prod_cons_globals[running_process->prod_cons_id][1] == 1) {
-                    cond_variable_wait(prod_cons_locks[running_process->prod_cons_id], 
-                            prod_cons_cond_vars[running_process->prod_cons_id][1], running_process); // wait for the read
-	    	    unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
-                    prod_cons_trap();
-                } else {
-	    	    prod_cons_globals[running_process->prod_cons_id][0] += 1;
-	    	    prod_cons_globals[running_process->prod_cons_id][1] = 1;
-	    	    cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][0], running_process,
-	    				 prod_cons_locks[running_process->prod_cons_id], ready_queue); // signal that it was incremented
-	    	    printf("Producer pid %u incremented variable: %i \n", running_process->pid,
-	    		   prod_cons_globals[running_process->prod_cons_id][0]);
-	    	}
-
-            } else if (contains(running_process->prod_cons_lock, cpu_pc - 1, 4) == 1) {
-                release_lock(prod_cons_locks[running_process->prod_cons_id]);
-	    	unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
-            }
-	    break;
+	    }
 	case CONS:
-	    if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
-                int check = lock(prod_cons_locks[running_process->prod_cons_id], running_process); 
-		if (check == 1) {
-		    lock_trap(NULL);
-		    break;
+	    if (running_process->proc_type == CONS) {
+		if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
+		    int check = lock(prod_cons_locks[running_process->prod_cons_id], running_process); 
+		    if (check == 1) {
+			lock_trap(NULL);
+			break;
+		    }
+		    
+		} else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
+		    if (prod_cons_globals[running_process->prod_cons_id][1] == 0) {
+			cond_variable_wait(prod_cons_locks[running_process->prod_cons_id],
+					   prod_cons_cond_vars[running_process->prod_cons_id][0], running_process); // wait for the increment
+			unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
+			prod_cons_trap();
+		    } else {
+			printf("Consumer pid %u read variable: %i \n", running_process->pid, 
+			       prod_cons_globals[running_process->prod_cons_id][0]);
+			prod_cons_globals[running_process->prod_cons_id][1] = 0;
+			cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][1], running_process, 
+					     prod_cons_locks[running_process->prod_cons_id], ready_queue); // signal that it was read 
+		    }
+		} else if (contains(running_process->prod_cons_lock, cpu_pc - 1, 4) == 1) {
+		    release_lock(prod_cons_locks[running_process->prod_cons_id]);
+		    unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
 		}
-	    
-            } else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
-                if (prod_cons_globals[running_process->prod_cons_id][1] == 0) {
-                    cond_variable_wait(prod_cons_locks[running_process->prod_cons_id],
-                            prod_cons_cond_vars[running_process->prod_cons_id][0], running_process); // wait for the increment
-	    	    unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
-                    prod_cons_trap();
-                } else {
-	    	    printf("Consumer pid %u read variable: %i \n", running_process->pid, 
-	    		   prod_cons_globals[running_process->prod_cons_id][0]);
-	    	    prod_cons_globals[running_process->prod_cons_id][1] = 0;
-	    	    cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][1], running_process, 
-	    				 prod_cons_locks[running_process->prod_cons_id], ready_queue); // signal that it was read 
-	    	}
-            } else if (contains(running_process->prod_cons_lock, cpu_pc - 1, 4) == 1) {
-                release_lock(prod_cons_locks[running_process->prod_cons_id]);
-	    	unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
-            }
+	    }
+	case IO:
+	    i = test_io_trap();
+	    if (i) {
+	    	/* Test IO trap returns 1 larger than the IO device to use. */
+	    	i--;
+	    	//lock_thread_by_priority(TRAP_IO);
+	    	printf("EVENT: IO Trap Called for PID %u on IO Device %u\n", running_process->pid, i);
+	    	trap_io(i);
+	    }
 	    break;
 	default:
 	    break;
