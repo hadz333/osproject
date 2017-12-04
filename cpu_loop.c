@@ -1141,7 +1141,8 @@ void deallocate_system() {
 
     if (running_process != NULL)
         PCB_destroy(running_process);
-
+    free(one);
+    free(two);
 
 }
 
