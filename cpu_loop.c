@@ -236,8 +236,8 @@ int main(void) {
     pthread_join(io_thread_2, NULL);
 
     deallocate_system();
-    proc_map_list_destructor(list_of_locks);
 
+    proc_map_list_destructor(list_of_locks);
     int k;
     for (k = 0; k < 10; k++) {
 	if (prod_cons_locks[k] != NULL) {
@@ -835,6 +835,7 @@ void initialize_system() {
     ready_queue = pq_create();
     zombie_queue = q_create();
     new_queue = q_create();
+
     for (i = 0; i < NUM_IO_DEVICES; i++) {
         io_queues[i] = q_create();
         io_queue_timers[i] = 0;

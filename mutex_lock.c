@@ -58,6 +58,8 @@ void proc_map_list_destructor(proc_map_list_p proc_map) {
 	proc_node_p next_2 = curr->next->next;
 	lock_destructor(curr->map->lock_1);
 	lock_destructor(curr->map->lock_2);
+	free(curr->map);
+	free(next->map);
 	free(curr);
 	free(next);
 
