@@ -77,6 +77,10 @@ pthread_cond_t io_cond_2 = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t timer_init_lock = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t io_init_lock = PTHREAD_MUTEX_INITIALIZER;
 
+unsigned int * one = 0;
+unsigned int * two = 0;
+
+
 int program_executing;
 int initialized_cond = 0;
 int initialized_io = 0;
@@ -857,10 +861,10 @@ void initialize_system() {
 
 
     // init io threads... 
-    unsigned int * one = malloc(sizeof(unsigned int));
+    one = malloc(sizeof(unsigned int));
     *one = 0;
     pthread_create(&io_thread_1, NULL, io_interrupt, (void *) one);
-    unsigned int * two = malloc(sizeof(unsigned int));
+    two = malloc(sizeof(unsigned int));
     *two = 1;
     pthread_create(&io_thread_2, NULL, io_interrupt, (void *) two);
 
