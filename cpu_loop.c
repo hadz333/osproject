@@ -43,9 +43,12 @@ int count_comp_procs = 0;
 
 int count_prod_cons_procs = 0;
 int prod_cons_globals[10][2]; // second dimension index 0 is counter incremented, index 1 is flip
+
 c_Variable_p prod_cons_cond_vars[10][2]; // second dimension index 0 is fill, index 1 is empty
-int curr_prod_cons_id = 0;
 Lock_p prod_cons_locks[10];
+
+int curr_prod_cons_id = 0;
+
 
 
 proc_map_list_p list_of_locks;
@@ -73,6 +76,10 @@ pthread_cond_t io_cond_2 = PTHREAD_COND_INITIALIZER;
 
 pthread_mutex_t timer_init_lock = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t io_init_lock = PTHREAD_MUTEX_INITIALIZER;
+
+unsigned int * one = 0;
+unsigned int * two = 0;
+
 
 int program_executing;
 int initialized_cond = 0;
@@ -226,17 +233,29 @@ int main(void) {
             pthread_mutex_unlock(&timer_lock);
         }
     }
-    if (deadlock_flag == -1) {
-        printf("Run finished. No deadlock occurred during run\n");
-    } else {
-        printf("Run finished. Deadlock occurred at least once\n");
-    }
     pthread_join(timer_thread, NULL);
     pthread_cond_signal(&io_cond_1);
     pthread_cond_signal(&io_cond_2);
     pthread_join(io_thread_1, NULL);
     pthread_join(io_thread_2, NULL);
+
     deallocate_system();
+
+    proc_map_list_destructor(list_of_locks);
+    int k;
+    for (k = 0; k < 10; k++) {
+	if (prod_cons_locks[k] != NULL) {
+	    lock_destructor(prod_cons_locks[k]);
+	    c_var_destructor(prod_cons_cond_vars[k][0]);
+	    c_var_destructor(prod_cons_cond_vars[k][1]);
+	}
+    }
+
+    if (deadlock_flag == -1) {
+        printf("Run finished. No deadlock occurred during run\n");
+    } else {
+        printf("Run finished. Deadlock occurred at least once\n");
+    }
     return program_executing;
 }
 
@@ -820,6 +839,7 @@ void initialize_system() {
     ready_queue = pq_create();
     zombie_queue = q_create();
     new_queue = q_create();
+
     for (i = 0; i < NUM_IO_DEVICES; i++) {
         io_queues[i] = q_create();
         io_queue_timers[i] = 0;
@@ -841,10 +861,10 @@ void initialize_system() {
 
 
     // init io threads... 
-    unsigned int * one = malloc(sizeof(unsigned int));
+    one = malloc(sizeof(unsigned int));
     *one = 0;
     pthread_create(&io_thread_1, NULL, io_interrupt, (void *) one);
-    unsigned int * two = malloc(sizeof(unsigned int));
+    two = malloc(sizeof(unsigned int));
     *two = 1;
     pthread_create(&io_thread_2, NULL, io_interrupt, (void *) two);
 
@@ -875,7 +895,7 @@ void generate_pcbs() {
     for (i = 0; i < num_to_make; i++) {
 	Lock_p lock_1;
 	Lock_p lock_2;
-        new_pcb = make_pcb();
+        //new_pcb = make_pcb();
         /*
          * Randomly decide if one process will be not terminate or not.
          */
@@ -919,6 +939,7 @@ void generate_pcbs() {
 
 	    new_pcb = make_pcb();
 	    new_pcb->terminate = 0;
+
 	    if (new_pcb == NULL) break;
 	    proc_to_lock_map_p new_map_2;
 	    if (CREATE_DEADLOCK_TRUE == 0) {
@@ -934,24 +955,24 @@ void generate_pcbs() {
 	    // if we want deadlock
 	    // make_pcb_mutex(new_pcb, lock_2, lock_1);
 	case 3: // prod/consumer proc
-	        if (count_prod_cons_procs < MAX_PROD_CONS_PROC_PAIRS) { // SECTION ADDED BY DINO - REMOVE LATER. USED TO FIND LINES TO ADD TO OFFICIAL PROJ.
+	    if (count_prod_cons_procs < MAX_PROD_CONS_PROC_PAIRS) { // SECTION ADDED BY DINO - REMOVE LATER. USED TO FIND LINES TO ADD TO OFFICIAL PROJ.
                 // its a prod 
                 //c_Variable_p empty, fill; // used for prod/cons problem
-		    new_pcb = make_pcb();
-		    new_pcb->proc_type = PROD;
-		    new_pcb->prod_cons_id = count_prod_cons_procs;
-		    prod_cons_cond_vars[count_prod_cons_procs][0] = cond_variable_constructor();
-		    prod_cons_cond_vars[count_prod_cons_procs][1] = cond_variable_constructor();
-		    prod_cons_locks[count_prod_cons_procs] = lock_constructor();
-		    //count_prod_cons_procs++;
-		    q_enqueue(new_queue, new_pcb);
-		    // its a cons
-		    new_pcb = make_pcb();
-		    new_pcb->proc_type = CONS;
-		    new_pcb->prod_cons_id = count_prod_cons_procs;
-		    count_prod_cons_procs++;
-		    q_enqueue(new_queue, new_pcb);
-		}
+	    	new_pcb = make_pcb();
+	    	new_pcb->proc_type = PROD;
+	    	new_pcb->prod_cons_id = count_prod_cons_procs;
+	    	prod_cons_cond_vars[count_prod_cons_procs][0] = cond_variable_constructor();
+	    	prod_cons_cond_vars[count_prod_cons_procs][1] = cond_variable_constructor();
+	    	prod_cons_locks[count_prod_cons_procs] = lock_constructor();
+	    	//count_prod_cons_procs++;
+	    	q_enqueue(new_queue, new_pcb);
+	    	// its a cons
+	    	new_pcb = make_pcb();
+	    	new_pcb->proc_type = CONS;
+	    	new_pcb->prod_cons_id = count_prod_cons_procs;
+	    	count_prod_cons_procs++;
+	    	q_enqueue(new_queue, new_pcb);
+	    }
 	    break;
 	default:
 	    break;
@@ -1124,7 +1145,8 @@ void deallocate_system() {
 
     if (running_process != NULL)
         PCB_destroy(running_process);
-
+    free(one);
+    free(two);
 
 }
 
