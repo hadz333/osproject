@@ -307,9 +307,12 @@ int cpu() {
 		    //printf("lock 1 has process pid=%u, running proc pid=%u\n", lockedproc->pid, running_process->pid);
 		int attempt = lock(map->lock_1, running_process);
 		if (attempt == 0) {
-	    	    printf("LOCK 1 proc pid: %u - pc: %u \n", running_process->pid, cpu_pc);
+	    	    //printf("LOCK 1 proc pid: %u - pc: %u \n", running_process->pid, cpu_pc);
+	    	    printf("PID %u: requested lock on mutex 1 - succeeded\n", running_process->pid);
 		} else {
 		    //printf("sleeping lock 1, pid %u\n", running_process->pid);
+		    printf("PID %u: requested lock on mutex 1 - blocked by PID %u\n", running_process->pid, lockedproc->pid);
+		    
 		    lock_trap(map->lock_1);
 		}
 	    } else if (contains(running_process->lock_2, cpu_pc, 4) == 1) {
@@ -319,9 +322,11 @@ int cpu() {
 		    //printf("lock 2 has process pid=%u, running proc pid=%u\n", lockedproc->pid, running_process->pid);
 	    	int attempt = lock(map->lock_2, running_process);
 	    	if (attempt == 0) {
-	    	    printf("LOCK 2 proc pid: %u - pc: %u \n", running_process->pid, cpu_pc);
+	    	    //printf("LOCK 2 proc pid: %u - pc: %u \n", running_process->pid, cpu_pc);
+	    	    printf("PID %u: requested lock on mutex 2 - succeeded\n", running_process->pid);
 	    	} else {
 		    //printf("sleeping lock 2, pid %u\n", running_process->pid);
+		    printf("PID %u: requested lock on mutex 2 - blocked by PID %u\n", running_process->pid, lockedproc->pid);
 	    	    lock_trap(map->lock_2);
 	    	}
 	    } else if (contains(running_process->unlock_1, cpu_pc, 4) == 1) {
@@ -392,6 +397,8 @@ int cpu() {
 		    if (prod_cons_globals[running_process->prod_cons_id][1] == 1) {
 			cond_variable_wait(prod_cons_locks[running_process->prod_cons_id], 
 					   prod_cons_cond_vars[running_process->prod_cons_id][1], running_process); // wait for the read
+			printf("PID %u requested condition wait on cond %u with mutex %u\n", running_process->pid, 
+				running_process->prod_cons_id, running_process->prod_cons_id);
 			unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
 			prod_cons_trap();
 		    } else {
@@ -399,6 +406,8 @@ int cpu() {
 			prod_cons_globals[running_process->prod_cons_id][1] = 1;
 			cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][0], running_process,
 					     prod_cons_locks[running_process->prod_cons_id], ready_queue); // signal that it was incremented
+			printf("PID %u sent signal on cond %u\n", running_process->pid, running_process->prod_cons_id);
+			
 			printf("Producer pid %u incremented variable: %i \n", running_process->pid,
 			       prod_cons_globals[running_process->prod_cons_id][0]);
 		    }
@@ -421,6 +430,8 @@ int cpu() {
 		    if (prod_cons_globals[running_process->prod_cons_id][1] == 0) {
 			cond_variable_wait(prod_cons_locks[running_process->prod_cons_id],
 					   prod_cons_cond_vars[running_process->prod_cons_id][0], running_process); // wait for the increment
+			printf("PID %u requested condition wait on cond %u with mutex %u\n", running_process->pid, 
+				running_process->prod_cons_id, running_process->prod_cons_id);
 			unlock_and_release_waiting_procs(prod_cons_locks[running_process->prod_cons_id]);
 			prod_cons_trap();
 		    } else {
@@ -429,6 +440,7 @@ int cpu() {
 			prod_cons_globals[running_process->prod_cons_id][1] = 0;
 			cond_variable_signal(prod_cons_cond_vars[running_process->prod_cons_id][1], running_process, 
 					     prod_cons_locks[running_process->prod_cons_id], ready_queue); // signal that it was read 
+			printf("PID %u sent signal on cond %u\n", running_process->pid, running_process->prod_cons_id);
 		    }
 		} else if (contains(running_process->prod_cons_lock, cpu_pc - 1, 4) == 1) {
 		    release_lock(prod_cons_locks[running_process->prod_cons_id]);
