@@ -29,9 +29,11 @@
 #define IO_DELAY_MOD 100
 #define TIMER_SLEEP 10000000
 
+
 #define NUM_TYPE_PROCS 4
 #define MAX_IO_PROCS 50
 #define MAX_INTENSIVE_PROCS 25
+#define MAX_MUTEX_PROCS 50
 
 #define MAX_PROD_CONS_PROC_PAIRS 10
 #define DEADLOCK_CHECK_THRESHOLD 10 //how many context switches before checking for deadlock
@@ -39,7 +41,7 @@
 
 int count_io_procs = 0;
 int count_comp_procs = 0;
-
+int count_mutex_procs = 0;
 
 int count_prod_cons_procs = 0;
 int prod_cons_globals[10][2]; // second dimension index 0 is counter incremented, index 1 is flip
@@ -49,7 +51,9 @@ Lock_p prod_cons_locks[10];
 
 int curr_prod_cons_id = 0;
 
-
+int io_total = 0;
+int intensive_total = 0;
+int mutex_total = 0;
 
 proc_map_list_p list_of_locks;
 int deadlock_check_counter = 0;
@@ -257,6 +261,13 @@ int main(void) {
     } else {
         printf("Run finished. Deadlock occurred at least once\n");
     }
+    printf("Num IO processes: %i\n", io_total);
+    printf("Num intensive processes: %i\n", intensive_total);
+    printf("Num mutex processes: %i\n", mutex_total);
+    printf("Num prod/con processes: %i\n", count_prod_cons_procs* 2);
+
+    printf("Total number of processes created: %u\n", io_total + intensive_total + (mutex_total * 2) + (count_prod_cons_procs*2));
+
     return program_executing;
 }
 
@@ -384,7 +395,7 @@ int cpu() {
 	    	}
 	    }
 	case PROD:
-	    if (running_process->proc_type == PROD) {
+	    if (running_process != NULL && running_process->proc_type == PROD) {
 		if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
 		    int check = lock(prod_cons_locks[running_process->prod_cons_id], running_process); 
 		    if (check == 1) {
@@ -392,7 +403,7 @@ int cpu() {
 			break;
 		    }
 		    
-		} else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
+		} else if (running_process != NULL && contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
 		    
 		    if (prod_cons_globals[running_process->prod_cons_id][1] == 1) {
 			cond_variable_wait(prod_cons_locks[running_process->prod_cons_id], 
@@ -418,7 +429,7 @@ int cpu() {
 		}
 	    }
 	case CONS:
-	    if (running_process->proc_type == CONS) {
+	    if (running_process != NULL && running_process->proc_type == CONS) {
 		if (contains(running_process->prod_cons_lock, cpu_pc + 1, 4) == 1) {
 		    int check = lock(prod_cons_locks[running_process->prod_cons_id], running_process); 
 		    if (check == 1) {
@@ -426,7 +437,7 @@ int cpu() {
 			break;
 		    }
 		    
-		} else if (contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
+		} else if (running_process != NULL && contains(running_process->prod_cons_lock, cpu_pc, 4) == 1) {
 		    if (prod_cons_globals[running_process->prod_cons_id][1] == 0) {
 			cond_variable_wait(prod_cons_locks[running_process->prod_cons_id],
 					   prod_cons_cond_vars[running_process->prod_cons_id][0], running_process); // wait for the increment
@@ -680,6 +691,18 @@ int test_io_trap() {
  * Pre: The running_process must not be NULL.
  */
 void trap_terminate() {
+    
+    switch (running_process->proc_type) { 
+    case 0: // IO case
+	count_io_procs--;
+	break;
+    case 1: // computations case
+	count_comp_procs--;
+	break;
+    default:
+	return;
+    }
+
     running_process->state = STATE_TERMINATED;
     running_process->termination_time = time(NULL);
     q_enqueue(zombie_queue, running_process);
@@ -927,6 +950,7 @@ void generate_pcbs() {
 	switch (type) {
 	case 0: //IO CASE
 	    if (count_io_procs < MAX_IO_PROCS) {
+		io_total++;
 	    	new_pcb = make_pcb();
 	    	new_pcb->proc_type = IO;
 	    	count_io_procs++;
@@ -939,6 +963,7 @@ void generate_pcbs() {
 	    break;
 	case 1: // computations case
 	    if (count_comp_procs < MAX_INTENSIVE_PROCS) {
+		intensive_total++;
 	    	new_pcb = make_pcb();
 	    	new_pcb->proc_type = INTENSIVE;
 	    	count_comp_procs++;
@@ -949,36 +974,40 @@ void generate_pcbs() {
 	    }
 	    break;
 	case 2: // mutex case
-	    lock_1 = lock_constructor();
-	    lock_2 = lock_constructor();
+	    if (count_mutex_procs < MAX_MUTEX_PROCS) {
+		lock_1 = lock_constructor();
+	    	lock_2 = lock_constructor();
+	    	mutex_total += 2;
+		count_mutex_procs += 2;
 
-	    new_pcb = make_pcb();
-	    new_pcb->terminate = 0;
-	    if (new_pcb == NULL) break;
-	    proc_to_lock_map_p new_map_1 = proc_map_constructor(lock_1, lock_2, new_pcb);
-	    proc_map_list_add(list_of_locks, new_map_1);
-	    new_pcb->proc_type = MUTEX;
-	    q_enqueue(new_queue, new_pcb);
+	    	new_pcb = make_pcb();
+	    	new_pcb->terminate = 0;
+	    	if (new_pcb == NULL) break;
+	    	proc_to_lock_map_p new_map_1 = proc_map_constructor(lock_1, lock_2, new_pcb);
+	    	proc_map_list_add(list_of_locks, new_map_1);
+	    	new_pcb->proc_type = MUTEX;
+	    	q_enqueue(new_queue, new_pcb);
 
-	    new_pcb = make_pcb();
-	    new_pcb->terminate = 0;
+	    	new_pcb = make_pcb();
+	    	new_pcb->terminate = 0;
 
-	    if (new_pcb == NULL) break;
-	    proc_to_lock_map_p new_map_2;
-	    if (CREATE_DEADLOCK_TRUE == 0) {
-		new_map_2 = proc_map_constructor(lock_1, lock_2, new_pcb);
-	    } else {
-		new_map_2 = proc_map_constructor(lock_2, lock_1, new_pcb);
+	    	if (new_pcb == NULL) break;
+	    	proc_to_lock_map_p new_map_2;
+	    	if (CREATE_DEADLOCK_TRUE == 0) {
+	    	    new_map_2 = proc_map_constructor(lock_1, lock_2, new_pcb);
+	    	} else {
+	    	    new_map_2 = proc_map_constructor(lock_2, lock_1, new_pcb);
+	    	}
+	    	proc_map_list_add(list_of_locks, new_map_2);
+	    	new_pcb->proc_type = MUTEX;
+	    	q_enqueue(new_queue, new_pcb);
+	    	break;
+
+	    	// if we want deadlock
+	    	// make_pcb_mutex(new_pcb, lock_2, lock_1);
 	    }
-	    proc_map_list_add(list_of_locks, new_map_2);
-	    new_pcb->proc_type = MUTEX;
-	    q_enqueue(new_queue, new_pcb);
-	    break;
-
-	    // if we want deadlock
-	    // make_pcb_mutex(new_pcb, lock_2, lock_1);
 	case 3: // prod/consumer proc
-	    if (count_prod_cons_procs < MAX_PROD_CONS_PROC_PAIRS) { // SECTION ADDED BY DINO - REMOVE LATER. USED TO FIND LINES TO ADD TO OFFICIAL PROJ.
+	    if (count_prod_cons_procs < MAX_PROD_CONS_PROC_PAIRS) { 
                 // its a prod 
                 //c_Variable_p empty, fill; // used for prod/cons problem
 	    	new_pcb = make_pcb();
