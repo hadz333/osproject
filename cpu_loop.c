@@ -16,7 +16,7 @@
 
 /* The number of proccesses (minus one) to generate on initialization. */
 #define NUM_PROCESSES 40
-#define TEST_ITERATIONS 10000
+#define TEST_ITERATIONS 1000000
 #define PRIORITY_ZERO_TIME 5 /* Itty bitty quantum sizes for testing. */
 #define PER_PRIORITY_TIME_INCREASE 8
 #define S_MULTIPLE 8
@@ -27,7 +27,7 @@
 #define NUM_IO_DEVICES 2
 #define IO_DELAY_BASE 10
 #define IO_DELAY_MOD 100
-#define TIMER_SLEEP 1000000000
+#define TIMER_SLEEP 10000000
 
 #define NUM_TYPE_PROCS 4
 #define MAX_IO_PROCS 50
