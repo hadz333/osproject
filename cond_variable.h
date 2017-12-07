@@ -3,6 +3,8 @@
 #include "fifo_queue.h"
 #include "mutex_lock.h"
 
+// Dakota Crane, Dino Hadzic, Tyler Stinson
+
 typedef struct _Cond_Variable {
     FIFOq_p queue;
 } cond_variable_s;

@@ -1,5 +1,6 @@
 /*
  * TCSS 422 Scheduler Simulation
+ * Dakota Crane, Dino Hadzic, Tyler Stinson
  */
 
 #include <pthread.h>
@@ -16,7 +17,7 @@
 
 /* The number of proccesses (minus one) to generate on initialization. */
 #define NUM_PROCESSES 40
-#define TEST_ITERATIONS 1000000
+#define TEST_ITERATIONS 100000
 #define PRIORITY_ZERO_TIME 5 /* Itty bitty quantum sizes for testing. */
 #define PER_PRIORITY_TIME_INCREASE 8
 #define S_MULTIPLE 8
@@ -37,11 +38,12 @@
 
 #define MAX_PROD_CONS_PROC_PAIRS 10
 #define DEADLOCK_CHECK_THRESHOLD 10 //how many context switches before checking for deadlock
-#define CREATE_DEADLOCK_TRUE 1 // change to 1 if you want deadlock
+#define CREATE_DEADLOCK_TRUE 0 // change to 1 if you want deadlock
 
 int count_io_procs = 0;
 int count_comp_procs = 0;
 int count_mutex_procs = 0;
+int count_terminated = 0;
 
 int count_prod_cons_procs = 0;
 int prod_cons_globals[10][2]; // second dimension index 0 is counter incremented, index 1 is flip
@@ -263,10 +265,11 @@ int main(void) {
     }
     printf("Num IO processes: %i\n", io_total);
     printf("Num intensive processes: %i\n", intensive_total);
-    printf("Num mutex processes: %i\n", mutex_total);
+    printf("Num mutual resource processes: %i\n", mutex_total);
     printf("Num prod/con processes: %i\n", count_prod_cons_procs* 2);
 
     printf("Total number of processes created: %u\n", io_total + intensive_total + (mutex_total * 2) + (count_prod_cons_procs*2));
+    printf("Total number of processes terminated:%u\n", count_terminated);
 
     return program_executing;
 }
@@ -493,7 +496,6 @@ int cpu() {
 int contains(unsigned int arr[], unsigned int num, int arr_size) {
     int i;
     for (i = 0; i < 4; i++) {
-	//printf("index %d is %d\n", i, arr[i]);
 	if (arr[i] == num) {
 	    return 1;
 	}
@@ -707,6 +709,7 @@ void trap_terminate() {
     running_process->termination_time = time(NULL);
     q_enqueue(zombie_queue, running_process);
     running_process = NULL;
+    count_terminated++;
     scheduler(INT_TERMINATE);
 }
 
@@ -939,99 +942,96 @@ void generate_pcbs() {
     num_to_make = rand() % NUM_PROCESSES;
 
     for (i = 0; i < num_to_make; i++) {
-	Lock_p lock_1;
-	Lock_p lock_2;
-        //new_pcb = make_pcb();
-        /*
-         * Randomly decide if one process will be not terminate or not.
-         */
-	lottery = rand() % 1000;
-	int type = rand() % NUM_TYPE_PROCS;
-	switch (type) {
-	case 0: //IO CASE
-	    if (count_io_procs < MAX_IO_PROCS) {
-		io_total++;
-	    	new_pcb = make_pcb();
-	    	new_pcb->proc_type = IO;
-	    	count_io_procs++;
-	    	//num_to_make--;
-	    	if (lottery <= 5) {
-	    	    new_pcb->terminate = 0;
-	    	}
-	    	q_enqueue(new_queue, new_pcb);
-	    }
-	    break;
-	case 1: // computations case
-	    if (count_comp_procs < MAX_INTENSIVE_PROCS) {
-		intensive_total++;
-	    	new_pcb = make_pcb();
-	    	new_pcb->proc_type = INTENSIVE;
-	    	count_comp_procs++;
-	    	if (lottery <= 5) {
-	    	    new_pcb->terminate = 0;
-	    	}
-	    	q_enqueue(new_queue, new_pcb);
-	    }
-	    break;
-	case 2: // mutex case
-	    if (count_mutex_procs < MAX_MUTEX_PROCS) {
-		lock_1 = lock_constructor();
-	    	lock_2 = lock_constructor();
-	    	mutex_total += 2;
-		count_mutex_procs += 2;
+    	Lock_p lock_1;
+    	Lock_p lock_2;
+            //new_pcb = make_pcb();
+            /*
+             * Randomly decide if one process will be not terminate or not.
+             */
+    	lottery = rand() % 1000;
+    	int type = rand() % NUM_TYPE_PROCS;
+    	switch (type) {
+    	case 0: //IO CASE
+    	    if (count_io_procs < MAX_IO_PROCS) {
+    		io_total++;
+    	    	new_pcb = make_pcb();
+    	    	new_pcb->proc_type = IO;
+    	    	count_io_procs++;
+    	    	//num_to_make--;
+    	    	if (lottery <= 5) {
+    	    	    new_pcb->terminate = 0;
+    	    	}
+    	    	q_enqueue(new_queue, new_pcb);
+    	    }
+    	    break;
+    	case 1: // computations case
+    	    if (count_comp_procs < MAX_INTENSIVE_PROCS) {
+    		intensive_total++;
+    	    	new_pcb = make_pcb();
+    	    	new_pcb->proc_type = INTENSIVE;
+    	    	count_comp_procs++;
+    	    	if (lottery <= 5) {
+    	    	    new_pcb->terminate = 0;
+    	    	}
+    	    	q_enqueue(new_queue, new_pcb);
+    	    }
+    	    break;
+    	case 2: // mutex case
+    	    if (count_mutex_procs < MAX_MUTEX_PROCS) {
+    		lock_1 = lock_constructor();
+    	    	lock_2 = lock_constructor();
+    	    	mutex_total += 2;
+    		count_mutex_procs += 2;
 
-	    	new_pcb = make_pcb();
-	    	new_pcb->terminate = 0;
-	    	if (new_pcb == NULL) break;
-	    	proc_to_lock_map_p new_map_1 = proc_map_constructor(lock_1, lock_2, new_pcb);
-	    	proc_map_list_add(list_of_locks, new_map_1);
-	    	new_pcb->proc_type = MUTEX;
-	    	q_enqueue(new_queue, new_pcb);
+    	    	new_pcb = make_pcb();
+    	    	new_pcb->terminate = 0;
+    	    	if (new_pcb == NULL) break;
+    	    	proc_to_lock_map_p new_map_1 = proc_map_constructor(lock_1, lock_2, new_pcb);
+    	    	proc_map_list_add(list_of_locks, new_map_1);
+    	    	new_pcb->proc_type = MUTEX;
+    	    	q_enqueue(new_queue, new_pcb);
 
-	    	new_pcb = make_pcb();
-	    	new_pcb->terminate = 0;
+    	    	new_pcb = make_pcb();
+    	    	new_pcb->terminate = 0;
 
-	    	if (new_pcb == NULL) break;
-	    	proc_to_lock_map_p new_map_2;
-	    	if (CREATE_DEADLOCK_TRUE == 0) {
-	    	    new_map_2 = proc_map_constructor(lock_1, lock_2, new_pcb);
-	    	} else {
-	    	    new_map_2 = proc_map_constructor(lock_2, lock_1, new_pcb);
-	    	}
-	    	proc_map_list_add(list_of_locks, new_map_2);
-	    	new_pcb->proc_type = MUTEX;
-	    	q_enqueue(new_queue, new_pcb);
-	    	break;
+    	    	if (new_pcb == NULL) break;
+    	    	proc_to_lock_map_p new_map_2;
+    	    	if (CREATE_DEADLOCK_TRUE == 0) {
+    	    	    new_map_2 = proc_map_constructor(lock_1, lock_2, new_pcb);
+    	    	} else {
+    	    	    new_map_2 = proc_map_constructor(lock_2, lock_1, new_pcb);
+    	    	}
+    	    	proc_map_list_add(list_of_locks, new_map_2);
+    	    	new_pcb->proc_type = MUTEX;
+    	    	q_enqueue(new_queue, new_pcb);
+    	    	break;
 
-	    	// if we want deadlock
-	    	// make_pcb_mutex(new_pcb, lock_2, lock_1);
-	    }
-	case 3: // prod/consumer proc
-	    if (count_prod_cons_procs < MAX_PROD_CONS_PROC_PAIRS) { 
-                // its a prod 
-                //c_Variable_p empty, fill; // used for prod/cons problem
-	    	new_pcb = make_pcb();
-	    	new_pcb->proc_type = PROD;
-	    	new_pcb->prod_cons_id = count_prod_cons_procs;
-	    	prod_cons_cond_vars[count_prod_cons_procs][0] = cond_variable_constructor();
-	    	prod_cons_cond_vars[count_prod_cons_procs][1] = cond_variable_constructor();
-	    	prod_cons_locks[count_prod_cons_procs] = lock_constructor();
-	    	//count_prod_cons_procs++;
-	    	q_enqueue(new_queue, new_pcb);
-	    	// its a cons
-	    	new_pcb = make_pcb();
-	    	new_pcb->proc_type = CONS;
-	    	new_pcb->prod_cons_id = count_prod_cons_procs;
-	    	count_prod_cons_procs++;
-	    	q_enqueue(new_queue, new_pcb);
-	    }
-	    break;
-	default:
-	    break;
-	}
-        //if (new_pcb != NULL) {
-        //    q_enqueue(new_queue, new_pcb);
-        //}
+    	    	// if we want deadlock
+    	    	// make_pcb_mutex(new_pcb, lock_2, lock_1);
+    	    }
+    	case 3: // prod/consumer proc
+    	    if (count_prod_cons_procs < MAX_PROD_CONS_PROC_PAIRS) { 
+                    // its a prod 
+                    //c_Variable_p empty, fill; // used for prod/cons problem
+    	    	new_pcb = make_pcb();
+    	    	new_pcb->proc_type = PROD;
+    	    	new_pcb->prod_cons_id = count_prod_cons_procs;
+    	    	prod_cons_cond_vars[count_prod_cons_procs][0] = cond_variable_constructor();
+    	    	prod_cons_cond_vars[count_prod_cons_procs][1] = cond_variable_constructor();
+    	    	prod_cons_locks[count_prod_cons_procs] = lock_constructor();
+    	    	//count_prod_cons_procs++;
+    	    	q_enqueue(new_queue, new_pcb);
+    	    	// its a cons
+    	    	new_pcb = make_pcb();
+    	    	new_pcb->proc_type = CONS;
+    	    	new_pcb->prod_cons_id = count_prod_cons_procs;
+    	    	count_prod_cons_procs++;
+    	    	q_enqueue(new_queue, new_pcb);
+    	    }
+    	    break;
+    	default:
+    	    break;
+    	}
     }
 }
 
@@ -1062,7 +1062,6 @@ PCB_p make_pcb() {
 
 	i = 0;
 	while (i < NUM_IO_TRAPS) {
-	    //for (i = 0; i < NUM_IO_TRAPS; i++) {
 	    unsigned int first = rand() % (my_pcb->max_pc/NUM_IO_TRAPS);
 	    unsigned int second = rand() % (my_pcb->max_pc/NUM_IO_TRAPS);
 
@@ -1126,7 +1125,6 @@ int deadlock_monitor() {
 	        currnode = currnode->next;
 	        continue;
 	    } else { 
-	        //printf("currlock1 proc %u, currlock2 proc %u\n\n", currlock1->current_proc->pid, currlock2->current_proc->pid);
 	       if ((currlock1->current_proc == mutproc1 && q_peek(currlock2->waiting_procs) == mutproc1)
 	    	   || (q_peek(currlock1->waiting_procs) == mutproc1 && currlock2->current_proc == mutproc1)) {
 	           printf("Deadlock detected on processes PID%u and PID%u\n", mutproc1->pid, mutproc1->pid + 1);
@@ -1202,7 +1200,6 @@ void deallocate_system() {
 }
 
 void lock_trap(Lock_p lock) {
-    //printf("DROPPING IN HERE\n");
     running_process->context->pc = cpu_pc - 1;
     running_process->state = STATE_BLOCKED;
     running_process = NULL;

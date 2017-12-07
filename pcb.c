@@ -1,7 +1,5 @@
 /*
- * Project 1
- *
- * Authors: Keegan Wantz, Carter Odem
+ * Dakota Crane, Dino Hadzic, Tyler Stinson
  * TCSS 422.
  */
 

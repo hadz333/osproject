@@ -1,7 +1,7 @@
 #include "priority_queue.h"
 #include "cond_variable.h"
 
-
+// Dakota Crane, Dino Hadzic, Tyler Stinson
 
 int cond_variable_signal(c_Variable_p var, PCB_p running_process, Lock_p prod_cons_lock, PQ_p ready_queue) {
     

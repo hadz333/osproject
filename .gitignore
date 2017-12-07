@@ -1,8 +1,10 @@
+
+.txt
 # Prerequisites
 *.d
 
 # Object files
-*.o
+.o
 *.ko
 *.obj
 *.elf
@@ -29,8 +31,8 @@
 *.dylib
 
 # Executables
-*.exe
-*.out
+.exe
+.out
 *.app
 *.i*86
 *.x86_64

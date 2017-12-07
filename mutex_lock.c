@@ -4,6 +4,10 @@
 #include "pcb.h"
 #include <stdio.h>
 
+
+//// Dakota Crane, Dino Hadzic, Tyler Stinson
+
+
 Lock_p lock_constructor() {
     Lock_p lock = malloc(sizeof(Lock_s));
     lock->current_proc = NULL;
