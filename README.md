@@ -1,48 +1,18 @@
-# Operating Systems - Final Project
+# TCSS 422 - Computer Operating Systems - Process Scheduler Simulation
 
-## TODO Overview
-This is in no way conclusive so far, please add and make better
+## Summary
+This program was the culminating project for University of Washington Tacoma's TCSS 422 - Computer Operating Systems course. Our group consisted of Dakota Crane, Dino Hadzic, and Tyler Stinson. The project's objective was to design and implement a simulated OS process scheduler capable of handling concurrent processes, interprocess communications, and asynchronous I/O devices.
 
-### CPU
-Tests trylock(timer lock)
-tests trylock(IO lock)
-pc++
+There were several specified process types we were to include, as well as simulated features such as a termination scheme, IO trap vectors, and a deadlock monitor. Additionally, we were to roll our own mutex lock and condition variable ADTs with attendant functions for use with our two concurrency-based process types.
 
-### Timer
-sleeps(some ms)
-awake and acquire timer lock (signal timer interrupt)
-calls timer isr
+## Processes
+There were four types of processes implemented:
 
-### IO devices
-When len(io queue) > 0:
-sleep(some ms)
-awake and acquire io lock (signals io interrupt)
-calls io isr/scheduler
-!! Need to be able to deal with timer interrupts within IO interrupts
+* Computationally intensive: These processes are essentially 'filler' procs, insofar as they do not interact with our mutex structures or our IO devices and just take up runtime.
 
-### Terminate
-Essentially per problem 4?
+* IO: Using the IO thread, these devices periodically engage an IO trap routine, placing the process into a blocked state before the scheduler switched to a new running process. After some time, an IO return interrupt occurs, necessitating the completion of the proc's IO request and returning it to a ready state.
 
-### Sync Structs
-Contain pointer to process that owns the struct
-Contains FIFO queue to blocked processes waiting for the lock/whatever
+* Mutual resource users: These processes are one of two concurrency-based proc types. Our mutual resource users are created in pairs and attempt to access a global variable shared between them. This is faciliated using our homegrown mutex locks. By default, these locks are held and released in the correct order to avoid deadlock; by changing a flag, deadlock can be achieved, which is watched for with the deadlock monitor function. 
 
-### New process types
-Will need arrays (like the IO trap arrays in the pcbs in problem 4) for synchronous occurrences (lock, trylock, unlock / wait, signal)
+* Producer-consumer pairs: These procs work together, using our homegrown condition variable mutexes, to work on a global variable per pair. If the variable has been read, the producer increments the variable and signals the consumer; if the consumer is signalled, it will read the variable and signal that it has been read. 
 
-#### Producer-Consumer
-Will need producer and consumer processes, as well as put/get functs
-Will use wait/signal type sync structs (condition variables
-Good example at end of ch 31 (I think that's the ch. need to check)
-
-#### Mutual resource users
-Will use two locks shared between process pairs
-
-#### IO Processes
-Basically as per problem 4; flesh out later
-
-#### Computationally intensive processes
-Basically as per problem 4; flesh out later
-
-### Deadlock monitor
-Worry about this later
